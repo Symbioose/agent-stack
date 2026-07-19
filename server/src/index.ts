@@ -12,6 +12,7 @@ import {
   hasSession,
   sendInput,
   captureScrollback,
+  tmuxArgs,
 } from './tmux.js';
 import { getMeta, setMeta, deleteMeta } from './store.js';
 import { authEnabled, checkPassword, issueToken, verifyToken } from './auth.js';
@@ -171,7 +172,7 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
 
   let term: pty.IPty;
   try {
-    term = pty.spawn('tmux', ['attach-session', '-t', sessionId], {
+    term = pty.spawn('tmux', tmuxArgs('attach-session', '-t', sessionId), {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
