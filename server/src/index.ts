@@ -210,4 +210,7 @@ server.listen(PORT, HOST, () => {
   if (!authEnabled()) {
     console.warn('WARNING: AGENT_DECK_PASSWORD is not set — authentication is DISABLED.');
   }
+  if (authEnabled() && !process.env.AGENT_DECK_SECRET) {
+    console.warn('NOTE: AGENT_DECK_SECRET not set — you will need to log in again after each restart.');
+  }
 });

@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 
-const SECRET = crypto.randomBytes(32);
+// If AGENT_DECK_SECRET is set, login tokens survive server restarts.
+// Otherwise a random secret is generated per boot (tokens invalidated on restart).
+const SECRET = process.env.AGENT_DECK_SECRET
+  ? Buffer.from(process.env.AGENT_DECK_SECRET)
+  : crypto.randomBytes(32);
 const PASSWORD = process.env.AGENT_DECK_PASSWORD || '';
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 

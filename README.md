@@ -31,12 +31,20 @@ npm run build        # build client (Vite) + serveur (tsc)
 ## Lancement
 
 ```bash
-AGENT_DECK_PASSWORD='ton-mot-de-passe' PORT=3000 npm start
+AGENT_DECK_PASSWORD='ton-mot-de-passe' \
+AGENT_DECK_SECRET='une-longue-chaine-aleatoire' \
+PORT=3000 npm start
 ```
 
 Puis ouvre `http://IP_DE_TA_VM:3000` (pense à ouvrir le port dans le firewall Oracle + `ufw`).
 
-> Sans `AGENT_DECK_PASSWORD`, l'authentification est **désactivée** — à ne faire qu'en local.
+### Variables d'environnement
+
+| Variable | Rôle |
+|---|---|
+| `AGENT_DECK_PASSWORD` | Mot de passe de connexion. **Non défini = auth désactivée** (local uniquement). |
+| `AGENT_DECK_SECRET` | Clé de signature des tokens. **Si définie, tu restes connecté après un redémarrage** du serveur. Sinon une clé aléatoire est générée à chaque boot (il faut se reconnecter). Génère-la avec `openssl rand -hex 32`. |
+| `PORT` / `HOST` | Port (défaut `3000`) et interface d'écoute (défaut `0.0.0.0`). |
 
 ### En service systemd (recommandé)
 
@@ -50,6 +58,7 @@ After=network.target
 User=ubuntu
 WorkingDirectory=/home/ubuntu/agent-deck
 Environment=AGENT_DECK_PASSWORD=CHANGE_ME
+Environment=AGENT_DECK_SECRET=CHANGE_ME_TOO
 Environment=PORT=3000
 ExecStart=/usr/bin/npm start
 Restart=always
@@ -59,6 +68,26 @@ WantedBy=multi-user.target
 EOF
 sudo systemctl enable --now agent-deck
 ```
+
+## Docker
+
+Une image toute prête (build + tmux inclus) :
+
+```bash
+docker build -t agent-deck .
+
+docker run -d --name agent-deck \
+  -p 3000:3000 \
+  -e AGENT_DECK_PASSWORD='ton-mot-de-passe' \
+  -e AGENT_DECK_SECRET="$(openssl rand -hex 32)" \
+  -v agent-deck-data:/root/.agent-deck \
+  --restart unless-stopped \
+  agent-deck
+```
+
+Le volume `agent-deck-data` conserve les métadonnées des sessions (`~/.agent-deck`) entre les redémarrages du conteneur.
+
+> ⚠️ Les sessions tmux vivent **dans le conteneur**. Pour utiliser Claude Code / Codex / etc., ces CLIs doivent être installées dans l'image (ajoute-les au `Dockerfile`) ou tu montes leur binaire. Si tes CLIs sont déjà installées sur la VM, le déploiement **systemd** ci-dessus est souvent plus simple que Docker.
 
 ## HTTPS (fortement recommandé)
 
