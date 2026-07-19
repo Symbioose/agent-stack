@@ -10,7 +10,10 @@
     "dev:client": "npm run dev -w client",
     "build": "npm run build -w client && npm run build -w server",
     "start": "node server/dist/index.js",
+    "test": "npm test -w server && npm test -w client",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "verify": "npm run test && npm run typecheck && npm run build",
+    "smoke": "node scripts/smoke-test.mjs",
     "postinstall": "node scripts/fix-node-pty.mjs"
   },
   "workspaces": [

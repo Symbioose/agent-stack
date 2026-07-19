@@ -6,13 +6,13 @@ import { getToken } from '../api';
 
 interface Props {
   sessionId: string;
-  onClosed?: () => void;
+  onMissing?: () => void;
 }
 
-export default function TerminalView({ sessionId, onClosed }: Props) {
+export default function TerminalView({ sessionId, onMissing }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const onClosedRef = useRef(onClosed);
-  onClosedRef.current = onClosed;
+  const onMissingRef = useRef(onMissing);
+  onMissingRef.current = onMissing;
 
   useEffect(() => {
     const term = new Terminal({
@@ -20,12 +20,12 @@ export default function TerminalView({ sessionId, onClosed }: Props) {
       fontSize: 13.5,
       fontFamily: '"JetBrains Mono", "Fira Code", Menlo, monospace',
       theme: {
-        background: '#0b0c0e',
-        foreground: '#e6e9ee',
-        cursor: '#7aa2f7',
-        selectionBackground: '#33467c',
-        black: '#15161a',
-        brightBlack: '#5c616d',
+        background: '#090b0d',
+        foreground: '#e7e9ec',
+        cursor: '#97a8ff',
+        selectionBackground: '#2d385f',
+        black: '#111317',
+        brightBlack: '#59616c',
       },
       scrollback: 20000,
       allowProposedApi: true,
@@ -53,9 +53,12 @@ export default function TerminalView({ sessionId, onClosed }: Props) {
       term.focus();
     };
     ws.onmessage = (e) => term.write(e.data as string);
-    ws.onclose = () => {
-      term.write('\r\n\x1b[90m[session terminée]\x1b[0m\r\n');
-      onClosedRef.current?.();
+    ws.onclose = (event) => {
+      if (event.code === 4004) {
+        onMissingRef.current?.();
+        return;
+      }
+      if (event.code !== 1000) term.write('\r\n\x1b[90m[connexion au terminal interrompue]\x1b[0m\r\n');
     };
 
     const dispose = term.onData((data) => {

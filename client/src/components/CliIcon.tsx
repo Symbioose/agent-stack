@@ -1,8 +1,8 @@
 import ClaudeCode from '@lobehub/icons/es/ClaudeCode/components/Color.js';
+import Codex from '@lobehub/icons/es/Codex/components/Color.js';
 import Devin from '@lobehub/icons/es/Devin/components/Color.js';
 import GeminiCLI from '@lobehub/icons/es/GeminiCLI/components/Color.js';
 import Grok from '@lobehub/icons/es/Grok/components/Mono.js';
-import OpenAI from '@lobehub/icons/es/OpenAI/components/Mono.js';
 import OpenCode from '@lobehub/icons/es/OpenCode/components/Mono.js';
 import type { IconType } from '@lobehub/icons/es/types/index.js';
 import { clsx } from 'clsx';
@@ -17,7 +17,7 @@ interface Props {
 
 const ICONS: Record<string, IconType> = {
   claude: ClaudeCode,
-  codex: OpenAI,
+  codex: Codex,
   gemini: GeminiCLI,
   opencode: OpenCode,
   devin: Devin,
@@ -30,7 +30,7 @@ const LABELS: Record<string, string> = {
   gemini: 'Gemini CLI',
   opencode: 'OpenCode',
   devin: 'Devin',
-  grok: 'Grok',
+  grok: 'Grok Code',
   shell: 'Shell',
 };
 

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Plus, PanelLeftClose, Trash2, LogOut, LayoutGrid } from 'lucide-react';
+import { LogOut, PanelLeftClose, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
+import BrandMark from './BrandMark';
 import CliIcon from './CliIcon';
 import type { Session } from '../types';
 
@@ -17,49 +17,21 @@ interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onDelete: (id: string) => void;
-  onRename: (id: string, title: string) => void;
   onClose: () => void;
   onLogout: () => void;
 }
 
-export default function Sidebar({
-  sessions,
-  activeId,
-  onSelect,
-  onNew,
-  onDelete,
-  onRename,
-  onClose,
-  onLogout,
-}: Props) {
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
-  const editRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing) editRef.current?.select();
-  }, [editing]);
-
-  const startEdit = (s: Session) => {
-    setEditing(s.id);
-    setDraft(s.title);
-  };
-  const commit = () => {
-    if (editing && draft.trim()) onRename(editing, draft.trim());
-    setEditing(null);
-  };
-
+export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, onLogout }: Props) {
   return (
-    <div className="flex h-full flex-col bg-sidebar">
-      <div className="flex items-center justify-between px-3.5 pb-2.5 pt-3.5">
-        <span className="flex items-center gap-2 font-semibold tracking-tight">
-          <LayoutGrid size={18} className="text-green" /> Agent Deck
+    <div className="flex h-full flex-col bg-sidebar px-2.5 pb-2.5 pt-3">
+      <div className="flex h-10 items-center justify-between px-1.5">
+        <span className="flex items-center gap-2.5 font-semibold tracking-[-0.015em]">
+          <BrandMark size={24} /> Agent Deck
         </span>
         <button
           onClick={onClose}
           title="Fermer"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
         >
           <PanelLeftClose size={17} />
         </button>
@@ -67,83 +39,52 @@ export default function Sidebar({
 
       <button
         onClick={onNew}
-        className="mx-2.5 mb-2.5 flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-[13.5px] font-medium transition-colors hover:bg-hover"
+        className="mb-5 mt-2.5 flex h-10 items-center gap-2.5 rounded-[10px] border border-border bg-gradient-to-b from-white/[0.035] to-transparent px-3 text-[13.5px] font-medium shadow-[0_6px_18px_rgba(0,0,0,.12)] transition-colors hover:border-white/15 hover:bg-hover"
       >
         <Plus size={16} /> Nouvelle session
       </button>
 
-      <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-faint">
-        Récent
+      <div className="px-2 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-faint">
+        Historique
       </div>
 
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            onClick={() => editing !== s.id && onSelect(s.id)}
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
+        {sessions.map((session) => (
+          <button
+            data-testid="session-row"
+            key={session.id}
+            onClick={() => onSelect(session.id)}
             className={clsx(
-              'group flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors',
-              activeId === s.id ? 'bg-active' : 'hover:bg-hover',
+              'flex h-[50px] w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left transition-colors',
+              activeId === session.id ? 'bg-active shadow-[inset_0_0_0_1px_rgba(255,255,255,.025)]' : 'hover:bg-hover',
             )}
           >
-            <CliIcon cli={s.cli} size={28} />
-            <div className="min-w-0 flex-1">
-              {editing === s.id ? (
-                <input
-                  ref={editRef}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  onBlur={commit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commit();
-                    if (e.key === 'Escape') setEditing(null);
-                  }}
-                  className="w-full rounded-md border border-border bg-bg px-1.5 py-0.5 text-[13.5px] outline-none"
-                />
-              ) : (
-                <div
-                  className="truncate text-[13.5px]"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    startEdit(s);
-                  }}
-                >
-                  {s.title}
-                </div>
-              )}
-              <div className="mt-0.5 truncate text-[11.5px] text-dim">
-                {s.cliLabel} · {timeAgo(s.created)}
-              </div>
-            </div>
+            <CliIcon cli={session.cli} label={session.cliLabel} size={26} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] text-text">{session.title}</span>
+              <span className="mt-0.5 block truncate text-[11px] text-faint">
+                {session.cliLabel} · {timeAgo(session.created)}
+              </span>
+            </span>
             <span
-              title={s.running ? 'En cours' : 'En attente'}
+              aria-label={session.running ? 'Session active' : 'Session inactive'}
+              title={session.running ? 'Active' : 'Inactive'}
               className={clsx(
-                'h-2 w-2 shrink-0 rounded-full',
-                s.running ? 'animate-pulse-ring bg-green' : 'bg-faint',
+                'h-[7px] w-[7px] shrink-0 rounded-full',
+                session.running ? 'bg-green shadow-[0_0_10px_rgba(66,216,137,.35)]' : 'bg-faint',
               )}
             />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(s.id);
-              }}
-              title="Supprimer"
-              className="flex h-6 w-6 items-center justify-center rounded-md text-dim opacity-0 transition-all hover:bg-active hover:text-danger group-hover:opacity-100 max-md:opacity-100"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          </button>
         ))}
         {sessions.length === 0 && (
-          <div className="mt-10 text-center text-[12.5px] text-faint">Aucune session active</div>
+          <div className="px-3 py-10 text-center text-[12px] text-faint">Aucune session</div>
         )}
       </div>
 
-      <div className="border-t border-border-soft px-3 py-2.5">
+      <div className="border-t border-border-soft px-1 pt-2.5">
         <button
           onClick={onLogout}
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] text-dim transition-colors hover:bg-hover hover:text-text"
+          className="flex h-9 items-center gap-2 rounded-lg px-2 text-[12.5px] text-dim transition-colors hover:bg-hover hover:text-text"
         >
           <LogOut size={14} /> Déconnexion
         </button>

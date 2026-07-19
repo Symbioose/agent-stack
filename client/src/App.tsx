@@ -3,9 +3,8 @@ import { PanelLeftOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import Sidebar from './components/Sidebar';
 import Login from './components/Login';
-import Composer from './components/Composer';
-import TerminalView from './components/Terminal';
-import CliIcon from './components/CliIcon';
+import NewSessionView from './components/NewSessionView';
+import SessionView from './components/SessionView';
 import { api, clearToken } from './api';
 import { useSessions } from './useSessions';
 import type { CliDef } from './types';
@@ -16,16 +15,21 @@ export default function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [clis, setClis] = useState<CliDef[]>([]);
-  const [cli, setCli] = useState<string>('');
+  const [cli, setCli] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile());
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const sessions = useSessions(authed === true, () => setAuthed(false));
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       try {
-        const cfg = await api.config();
-        if (!cfg.authRequired) return setAuthed(true);
+        const config = await api.config();
+        if (!config.authRequired) {
+          setAuthed(true);
+          return;
+        }
         await api.sessions();
         setAuthed(true);
       } catch {
@@ -36,29 +40,29 @@ export default function App() {
 
   useEffect(() => {
     if (authed !== true) return;
-    api
-      .clis()
-      .then((list) => {
-        setClis(list);
-        setCli((c) => c || list[0]?.id || '');
-      })
-      .catch(() => {});
+    api.clis().then((list) => {
+      setClis(list);
+      setCli((current) => current || list[0]?.id || '');
+    }).catch(() => setCreateError('Impossible de charger la liste des agents.'));
   }, [authed]);
 
-  if (authed === null)
-    return <div className="flex h-full items-center justify-center text-dim">…</div>;
+  if (authed === null) return <div className="flex h-full items-center justify-center text-dim">…</div>;
   if (authed === false) return <Login onLogin={() => setAuthed(true)} />;
 
-  const activeSession = sessions.find((s) => s.id === active) || null;
+  const activeSession = sessions.find((session) => session.id === active) || null;
 
   const createSession = async (input: string) => {
-    const { id } = await api.createSession({
-      cli,
-      title: input ? input.slice(0, 60) : undefined,
-      input: input || undefined,
-    });
-    setActive(id);
-    if (isMobile()) setSidebarOpen(false);
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const { id } = await api.createSession({ cli, title: input.slice(0, 60), input });
+      setActive(id);
+      if (isMobile()) setSidebarOpen(false);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Impossible de lancer la session.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const deleteSession = async (id: string) => {
@@ -69,16 +73,17 @@ export default function App() {
 
   const openSession = (id: string) => {
     setActive(id);
+    setCreateError(null);
     if (isMobile()) setSidebarOpen(false);
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-bg">
       {/* Sidebar */}
       <aside
         className={clsx(
-          'z-50 h-full w-[268px] shrink-0 border-r border-border-soft transition-[margin] duration-200 ease-out max-md:fixed max-md:shadow-[6px_0_30px_rgba(0,0,0,0.5)]',
-          sidebarOpen ? 'ml-0' : '-ml-[268px]',
+          'z-50 h-full w-[254px] shrink-0 border-r border-border-soft transition-[margin] duration-200 ease-out max-md:fixed max-md:shadow-[8px_0_32px_rgba(0,0,0,.48)]',
+          sidebarOpen ? 'ml-0' : '-ml-[254px]',
         )}
       >
         <Sidebar
@@ -87,10 +92,9 @@ export default function App() {
           onSelect={openSession}
           onNew={() => {
             setActive(null);
+            setCreateError(null);
             if (isMobile()) setSidebarOpen(false);
           }}
-          onDelete={deleteSession}
-          onRename={(id, title) => api.renameSession(id, title)}
           onClose={() => setSidebarOpen(false)}
           onLogout={() => {
             clearToken();
@@ -99,73 +103,40 @@ export default function App() {
         />
       </aside>
       {sidebarOpen && isMobile() && (
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setSidebarOpen(false)} />
+        <button aria-label="Fermer le menu" className="fixed inset-0 z-40 bg-black/55" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main */}
       <main className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex min-h-[46px] items-center gap-2.5 border-b border-border-soft px-3.5 py-2">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              title="Ouvrir le menu"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
-            >
-              <PanelLeftOpen size={17} />
-            </button>
-          )}
-          {activeSession && (
-            <>
-              <CliIcon cli={activeSession.cli} size={20} />
-              <span className="truncate text-[13.5px] font-semibold">{activeSession.title}</span>
-              <span
-                className={clsx(
-                  'rounded-full border px-2.5 py-0.5 text-[11px]',
-                  activeSession.running
-                    ? 'border-green/35 text-green'
-                    : 'border-border text-dim',
-                )}
-              >
-                {activeSession.running ? 'en cours' : 'en attente'}
-              </span>
-            </>
-          )}
-        </div>
-
-        {active ? (
-          <>
-            <div className="min-h-0 flex-1 px-2 pt-2">
-              <TerminalView key={active} sessionId={active} />
-            </div>
-            <div className="flex justify-center px-3.5 pb-3.5 pt-2">
-              <div className="w-full max-w-[760px]">
-                <Composer
-                  clis={clis}
-                  cli={activeSession?.cli}
-                  showCliPicker={false}
-                  placeholder="Envoyer une commande à la session…"
-                  onSubmit={(text) => active && api.sendInput(active, text)}
-                />
-              </div>
-            </div>
-          </>
+        {!active && !sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Ouvrir le menu"
+            className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
+          >
+            <PanelLeftOpen size={17} />
+          </button>
+        )}
+        {active && activeSession ? (
+          <SessionView
+            session={activeSession}
+            sidebarOpen={sidebarOpen}
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onRename={(title) => api.renameSession(activeSession.id, title)}
+            onDelete={() => void deleteSession(activeSession.id)}
+            onMissing={() => setActive(null)}
+          />
+        ) : active ? (
+          <div className="flex flex-1 items-center justify-center text-[13px] text-dim">Ouverture de la session…</div>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2.5 px-5 pb-16">
-            <h1 className="text-[27px] font-semibold tracking-tight">Qu'est-ce qu'on lance ?</h1>
-            <p className="mb-4 text-center text-dim">
-              Choisis ta CLI et décris ta tâche — la session tournera sur la machine.
-            </p>
-            <div className="w-full max-w-[680px]">
-              <Composer
-                clis={clis}
-                cli={cli}
-                onCliChange={setCli}
-                placeholder="Décris ta tâche à l'agent…"
-                onSubmit={createSession}
-                autoFocus
-              />
-            </div>
-          </div>
+          <NewSessionView
+            clis={clis}
+            cli={cli}
+            onCliChange={setCli}
+            onSubmit={(input) => void createSession(input)}
+            pending={creating}
+            error={createError}
+          />
         )}
       </main>
     </div>

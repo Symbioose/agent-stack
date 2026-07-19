@@ -6,12 +6,13 @@ Chaque « session » est une **session tmux** sur ta machine : elle continue de 
 
 ## Fonctionnalités
 
-- **Home façon Devin** : composer en bulle au centre, tu décris ta tâche et choisis la CLI (vrais logos Claude / Codex / Gemini / OpenCode / Shell).
-- **Sidebar temps réel** : liste des sessions avec logo, titre, et point de statut **vert pulsant** (en cours) ou gris (en attente). Les statuts sont **poussés par le serveur** (WebSocket) — pas de polling, c'est instantané.
-- **Terminal plein écran** = la vraie CLI de la machine, en direct. Le **scrollback est restauré** à la reconnexion (tu retrouves l'historique).
-- **Sessions persistantes (tmux)** : ferme ton PC, reprends depuis ton téléphone.
-- **Renommage inline** (double-clic sur un titre) et suppression.
-- **Auth par mot de passe**, responsive mobile, **installable en PWA**.
+- **Nouvelle session** : composer central avec Claude Code, Codex, Gemini CLI, OpenCode, Devin, Grok Code et Shell.
+- **Logos officiels** et interface minimal premium, responsive mobile.
+- **Historique temps réel** : ordre chronologique, titre, CLI et point vert/gris poussé par WebSocket.
+- **Terminal quasi plein écran** : interaction directe avec la vraie CLI, sans deuxième zone de saisie.
+- **Sessions persistantes et isolées** : Agent Deck utilise son propre serveur tmux (`-L agent-deck -f /dev/null`), sans charger tes plugins ou ta configuration tmux personnelle.
+- **Scrollback restauré** à la reconnexion, renommage/suppression depuis les actions de session.
+- **Auth par mot de passe** et **PWA installable**.
 
 ## Stack
 
@@ -114,18 +115,23 @@ Crée `~/.agent-deck/clis.json` :
 ]
 ```
 
-L'`id` détermine le logo affiché (`claude`, `codex`, `gemini`, `opencode`, `shell`).
+L'`id` détermine le logo affiché (`claude`, `codex`, `gemini`, `opencode`, `devin`, `grok`, `shell`). Les CLIs absentes restent visibles ; le lancement affiche une erreur claire sans créer de session orpheline.
 
 ## Développement
 
 ```bash
 npm run dev         # serveur :3000 (tsx watch) + Vite HMR :5173 (proxy /api et /ws)
+npm test            # tests serveur + composants React
 npm run typecheck   # vérifie les types côté serveur et client
+npm run verify      # tests + types + build de production
+AGENT_DECK_PASSWORD=ton-mot-de-passe npm run smoke
 ```
+
+`AGENT_DECK_TMUX_SOCKET` permet de remplacer le nom du socket tmux isolé, principalement pour les tests.
 
 ## Notes
 
-- Les tokens de connexion sont invalidés au redémarrage du serveur (il suffit de se reconnecter).
+- Avec `AGENT_DECK_SECRET`, les tokens restent valides après un redémarrage ; sans cette variable, il faut se reconnecter.
 - Supprimer une session **tue** le processus tmux qui tourne dedans.
 - Les métadonnées des sessions sont dans `~/.agent-deck/sessions.json`.
 - Sur macOS/certaines plateformes, `node-pty` extrait son binaire `spawn-helper` sans le bit exécutable (→ `posix_spawnp failed`). Le `postinstall` (`scripts/fix-node-pty.mjs`) corrige ça automatiquement.

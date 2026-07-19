@@ -1,121 +1,108 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, ChevronDown } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown } from 'lucide-react';
 import { clsx } from 'clsx';
 import CliIcon from './CliIcon';
 import type { CliDef } from '../types';
 
 interface Props {
   clis: CliDef[];
-  cli?: string;
-  onCliChange?: (id: string) => void;
+  cli: string;
+  onCliChange: (id: string) => void;
   onSubmit: (text: string) => void;
-  placeholder?: string;
-  showCliPicker?: boolean;
-  autoFocus?: boolean;
+  pending: boolean;
 }
 
-export default function Composer({
-  clis,
-  cli,
-  onCliChange,
-  onSubmit,
-  placeholder,
-  showCliPicker = true,
-  autoFocus,
-}: Props) {
+export default function Composer({ clis, cli, onCliChange, onSubmit, pending }: Props) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const selected = clis.find((c) => c.id === cli) || clis[0];
+  const selected = clis.find((item) => item.id === cli) || clis[0];
+
+  useEffect(() => inputRef.current?.focus(), []);
 
   useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
-  }, [autoFocus]);
-
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
   }, [text]);
 
   useEffect(() => {
     if (!pickerOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false);
+    const close = (event: MouseEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
     };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
   }, [pickerOpen]);
 
   const submit = () => {
-    const t = text.trim();
-    if (!t) return;
-    onSubmit(t);
-    setText('');
-    inputRef.current?.focus();
+    const value = text.trim();
+    if (!value || pending || !selected) return;
+    onSubmit(value);
   };
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-elevated p-3 shadow-[0_10px_40px_rgba(0,0,0,0.4)] transition-colors focus-within:border-[#3a3f4a]">
+    <div className="w-full rounded-[15px] border border-border bg-elevated/95 p-3.5 shadow-[0_22px_60px_rgba(0,0,0,.4),inset_0_1px_rgba(255,255,255,.03)] backdrop-blur-xl transition-colors focus-within:border-white/20">
       <textarea
         ref={inputRef}
         rows={1}
-        placeholder={placeholder}
+        placeholder="Décris la tâche à exécuter…"
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
+        disabled={pending}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
             submit();
           }
         }}
-        className="max-h-[200px] w-full resize-none bg-transparent text-[15px] leading-relaxed text-text outline-none placeholder:text-faint"
+        className="min-h-11 max-h-[180px] w-full resize-none bg-transparent px-0.5 text-[15px] leading-relaxed text-text outline-none placeholder:text-faint disabled:opacity-60"
       />
-      <div className="mt-2 flex items-center justify-between">
-        {showCliPicker && selected ? (
+      <div className="mt-2 flex items-end justify-between">
+        {selected ? (
           <div className="relative" ref={pickerRef}>
             <button
               type="button"
-              onClick={() => setPickerOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-full border border-border px-2.5 py-1.5 text-[13px] text-text transition-colors hover:bg-hover"
+              disabled={pending}
+              onClick={() => setPickerOpen((open) => !open)}
+              className="flex h-8 items-center gap-2 rounded-lg border border-border bg-white/[0.015] px-2.5 text-[12.5px] text-text transition-colors hover:bg-hover disabled:opacity-50"
             >
-              <CliIcon cli={selected.id} size={18} />
+              <CliIcon cli={selected.id} label={selected.label} size={18} />
               <span>{selected.label}</span>
-              <ChevronDown size={14} className={clsx('transition-transform', pickerOpen && 'rotate-180')} />
+              <ChevronDown size={13} className={clsx('text-dim transition-transform', pickerOpen && 'rotate-180')} />
             </button>
             {pickerOpen && (
-              <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-[210px] animate-fade-in rounded-xl border border-border bg-elevated p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
-                {clis.map((c) => (
+              <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-[220px] animate-fade-in rounded-xl border border-border bg-elevated p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.5)]">
+                {clis.map((item) => (
                   <button
-                    key={c.id}
+                    key={item.id}
                     type="button"
                     onClick={() => {
-                      onCliChange?.(c.id);
+                      onCliChange(item.id);
                       setPickerOpen(false);
                     }}
                     className={clsx(
-                      'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-hover',
-                      c.id === cli && 'bg-active',
+                      'flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-hover',
+                      item.id === cli && 'bg-active',
                     )}
                   >
-                    <CliIcon cli={c.id} size={20} />
-                    <span>{c.label}</span>
+                    <CliIcon cli={item.id} label={item.label} size={20} />
+                    <span className="flex-1">{item.label}</span>
+                    {item.id === cli && <Check size={14} className="text-dim" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
-        ) : (
-          <span />
-        )}
+        ) : <span />}
         <button
           type="button"
           onClick={submit}
-          disabled={!text.trim()}
-          title="Envoyer"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-text text-bg transition-opacity hover:opacity-85 disabled:opacity-30"
+          disabled={!text.trim() || pending || !selected}
+          aria-label="Lancer la session"
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-text text-bg shadow-[0_5px_14px_rgba(255,255,255,.08)] transition-opacity hover:opacity-85 disabled:opacity-25"
         >
           <ArrowUp size={16} strokeWidth={2.5} />
         </button>
