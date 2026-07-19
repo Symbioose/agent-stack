@@ -4,6 +4,17 @@ export interface CliDef {
   command: string;
 }
 
+export type SessionCreateErrorCode =
+  | 'unknown_cli'
+  | 'cli_unavailable'
+  | 'session_create_failed';
+
+export interface ApiErrorBody {
+  code: SessionCreateErrorCode;
+  error: string;
+  command?: string;
+}
+
 export interface SessionMeta {
   title: string;
   cli: string;

@@ -4,6 +4,12 @@ export interface CliDef {
   command: string;
 }
 
+export interface ApiErrorBody {
+  error?: string;
+  code?: string;
+  command?: string;
+}
+
 export interface Session {
   id: string;
   title: string;

@@ -1,4 +1,4 @@
-import type { CliDef, Session } from './types';
+import type { ApiErrorBody, CliDef, Session } from './types';
 
 export function getToken(): string {
   return localStorage.getItem('deck_token') || '';
@@ -10,8 +10,10 @@ export function clearToken(): void {
   localStorage.removeItem('deck_token');
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   unauthorized = false;
+  code?: string;
+  command?: string;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -29,8 +31,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw err;
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(body.error || res.statusText);
+    const body = (await res.json().catch(() => ({}))) as ApiErrorBody;
+    const err = new ApiError(body.error || res.statusText);
+    err.code = body.code;
+    err.command = body.command;
+    throw err;
   }
   return (await res.json()) as T;
 }

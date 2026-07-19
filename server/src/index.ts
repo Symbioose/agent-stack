@@ -16,8 +16,9 @@ import {
 } from './tmux.js';
 import { getMeta, setMeta, deleteMeta } from './store.js';
 import { authEnabled, checkPassword, issueToken, verifyToken } from './auth.js';
-import { getClis } from './clis.js';
+import { CliUnavailableError, ensureCliAvailable, getClis } from './clis.js';
 import { addEventClient, buildSessionList, pokeEvents } from './events.js';
+import type { ApiErrorBody } from './types.js';
 
 // Keep the server alive even if a PTY/WebSocket edge case throws — the tmux
 // sessions live on regardless, and dropping the whole web server is worse.
@@ -62,13 +63,28 @@ app.get('/api/sessions', requireAuth, async (_req, res) => {
 
 app.post('/api/sessions', requireAuth, async (req, res) => {
   const { cli, title, cwd, input } = req.body || {};
-  const clis = getClis();
-  const def = clis.find((c) => c.id === cli) || clis[clis.length - 1];
+  const def = getClis().find((candidate) => candidate.id === cli);
+  if (!def) {
+    res.status(400).json({ code: 'unknown_cli', error: 'CLI inconnue.' } satisfies ApiErrorBody);
+    return;
+  }
   const id = `${PREFIX}${crypto.randomBytes(4).toString('hex')}`;
   try {
+    await ensureCliAvailable(def);
     await createSession(id, def.command, cwd);
   } catch (err) {
-    res.status(500).json({ error: String((err as Error).message || err) });
+    if (err instanceof CliUnavailableError) {
+      res.status(422).json({
+        code: err.code,
+        error: err.message,
+        command: err.command,
+      } satisfies ApiErrorBody);
+      return;
+    }
+    res.status(500).json({
+      code: 'session_create_failed',
+      error: String((err as Error).message || err),
+    } satisfies ApiErrorBody);
     return;
   }
   setMeta(id, {
