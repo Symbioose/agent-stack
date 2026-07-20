@@ -18,8 +18,8 @@ describe('Sidebar', () => {
       expect.stringContaining('Middle'),
       expect.stringContaining('Oldest'),
     ]);
-    expect(screen.getByLabelText('Working session')).toHaveClass('bg-green');
-    expect(screen.getByLabelText('Waiting for you session')).toHaveClass('bg-amber');
+    expect(screen.getByLabelText('Working session')).toHaveClass('bg-amber');
+    expect(screen.getByLabelText('Done — waiting for you session')).toHaveClass('bg-green');
     expect(screen.getByLabelText('Idle session')).toHaveClass('bg-faint');
   });
 

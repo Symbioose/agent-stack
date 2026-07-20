@@ -14,8 +14,8 @@ function timeAgo(ts: number): string {
 }
 
 const DOT: Record<SessionState, { label: string; className: string }> = {
-  working: { label: 'Working', className: 'bg-green shadow-[0_0_10px_rgba(66,216,137,.45)] animate-glow' },
-  waiting: { label: 'Waiting for you', className: 'bg-amber shadow-[0_0_9px_rgba(232,163,75,.4)]' },
+  working: { label: 'Working', className: 'bg-amber shadow-[0_0_10px_rgba(232,163,75,.45)] animate-glow' },
+  waiting: { label: 'Done — waiting for you', className: 'bg-green shadow-[0_0_9px_rgba(66,216,137,.4)]' },
   idle: { label: 'Idle', className: 'bg-faint' },
 };
 
