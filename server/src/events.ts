@@ -18,11 +18,13 @@ export async function buildSessionList(): Promise<SessionDTO[]> {
         cli: meta?.cli || 'shell',
         cliLabel: meta?.cliLabel || 'Shell',
         created: meta?.created || s.created,
+        lastActivity: Math.max(s.lastActivity, meta?.created || s.created),
         attached: s.attached,
         state: s.state,
       };
     })
-    .sort((a, b) => b.created - a.created);
+    // Most recently touched conversation first, like a chat history.
+    .sort((a, b) => b.lastActivity - a.lastActivity || b.created - a.created);
 }
 
 async function tick(): Promise<void> {

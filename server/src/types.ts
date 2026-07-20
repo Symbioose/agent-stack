@@ -23,14 +23,15 @@ export interface SessionMeta {
   created: number;
 }
 
-// working: the process is actively producing output.
-// waiting: a CLI is open but silent (most likely waiting for the user).
-// idle: nothing but a shell prompt.
+// working: the process is actively producing output right now.
+// waiting: a CLI finished recently and is waiting for the user.
+// idle: paused for a long time, or nothing but a shell prompt.
 export type SessionState = 'working' | 'waiting' | 'idle';
 
 export interface TmuxSession {
   name: string;
   created: number;
+  lastActivity: number;
   attached: boolean;
   state: SessionState;
   command: string;
@@ -42,6 +43,7 @@ export interface SessionDTO {
   cli: string;
   cliLabel: string;
   created: number;
+  lastActivity: number;
   attached: boolean;
   state: SessionState;
 }

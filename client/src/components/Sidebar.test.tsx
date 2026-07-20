@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import Sidebar from './Sidebar';
 
 const sessions = [
-  { id: 'new', title: 'Newest', cli: 'devin', cliLabel: 'Devin', created: 3, attached: false, state: 'working' as const },
-  { id: 'mid', title: 'Middle', cli: 'claude', cliLabel: 'Claude Code', created: 2, attached: false, state: 'waiting' as const },
-  { id: 'old', title: 'Oldest', cli: 'shell', cliLabel: 'Shell', created: 1, attached: false, state: 'idle' as const },
+  { id: 'new', title: 'Newest', cli: 'devin', cliLabel: 'Devin', created: 3, lastActivity: 30, attached: false, state: 'working' as const },
+  { id: 'mid', title: 'Middle', cli: 'claude', cliLabel: 'Claude Code', created: 2, lastActivity: 20, attached: false, state: 'waiting' as const },
+  { id: 'old', title: 'Oldest', cli: 'shell', cliLabel: 'Shell', created: 1, lastActivity: 10, attached: false, state: 'idle' as const },
 ];
 
 const baseProps = { activeId: null, onSelect: vi.fn(), onNew: vi.fn(), onDelete: vi.fn(), onClose: vi.fn(), onLogout: vi.fn() };
@@ -20,7 +20,7 @@ describe('Sidebar', () => {
     ]);
     expect(screen.getByLabelText('Working session')).toHaveClass('bg-amber');
     expect(screen.getByLabelText('Done — waiting for you session')).toHaveClass('bg-green');
-    expect(screen.getByLabelText('Idle session')).toHaveClass('bg-faint');
+    expect(screen.getByLabelText('Paused session')).toHaveClass('bg-faint');
   });
 
   it('opens the selected session', () => {

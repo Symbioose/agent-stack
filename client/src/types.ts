@@ -18,6 +18,7 @@ export interface Session {
   cli: string;
   cliLabel: string;
   created: number;
+  lastActivity: number;
   attached: boolean;
   state: SessionState;
 }

@@ -24,7 +24,15 @@ async function runTmux(...args: string[]) {
 const SHELLS = new Set(['bash', 'zsh', 'fish', 'sh', 'dash', 'tmux']);
 
 // A pane is "working" if it produced output within this window.
-const ACTIVITY_WINDOW_MS = 4000;
+const WORKING_WINDOW_MS = 5000;
+// A silent CLI turns from "waiting" to "idle" after this long.
+const IDLE_AFTER_MS = 30 * 60 * 1000;
+
+function sessionState(cmd: string, sinceActivity: number): TmuxSession['state'] {
+  if (sinceActivity < WORKING_WINDOW_MS) return 'working';
+  if (!SHELLS.has(cmd) && sinceActivity < IDLE_AFTER_MS) return 'waiting';
+  return 'idle';
+}
 
 export async function listSessions(): Promise<TmuxSession[]> {
   try {
@@ -40,12 +48,15 @@ export async function listSessions(): Promise<TmuxSession[]> {
       .filter(Boolean)
       .map((line): TmuxSession => {
         const [name, created, attached, cmd, activity] = line.split('\t');
-        const activeRecently = now - Number(activity) * 1000 < ACTIVITY_WINDOW_MS;
+        // Bucket activity to 15s so the event stream is not spammed with
+        // near-identical payloads while an agent produces output.
+        const lastActivity = Math.floor((Number(activity) * 1000) / 15000) * 15000;
         return {
           name,
           created: Number(created) * 1000,
+          lastActivity,
           attached: attached !== '0',
-          state: SHELLS.has(cmd) ? 'idle' : activeRecently ? 'working' : 'waiting',
+          state: sessionState(cmd, now - Number(activity) * 1000),
           command: cmd,
         };
       })
