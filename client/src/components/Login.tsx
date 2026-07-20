@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutGrid } from 'lucide-react';
+import BrandMark from './BrandMark';
 import { api, setToken } from '../api';
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
@@ -15,7 +15,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       setToken(token);
       onLogin();
     } catch {
-      setError('Mot de passe incorrect');
+      setError('Incorrect password');
       setBusy(false);
     }
   };
@@ -26,16 +26,17 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         onSubmit={submit}
         className="flex w-[340px] flex-col gap-3.5 rounded-2xl border border-border bg-elevated p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
       >
-        <div className="mb-1 flex items-center justify-center gap-2 text-[17px] font-semibold">
-          <LayoutGrid size={20} className="text-green" /> Agent Deck
+        <div className="mb-1 flex items-center justify-center gap-2.5 text-[17px] font-semibold">
+          <BrandMark size={26} /> Agent Deck
         </div>
         <input
           type="password"
-          placeholder="Mot de passe"
+          placeholder="Password"
+          autoComplete="current-password"
           value={password}
           autoFocus
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-[#3a3f4a]"
+          className="rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-white/20"
         />
         {error && <div className="text-center text-[13px] text-danger">{error}</div>}
         <button
@@ -43,7 +44,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           disabled={busy}
           className="rounded-xl bg-text py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          Se connecter
+          Sign in
         </button>
       </form>
     </div>

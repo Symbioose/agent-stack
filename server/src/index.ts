@@ -1,4 +1,6 @@
 import http from 'node:http';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +59,29 @@ app.get('/api/clis', requireAuth, (_req, res) => {
   res.json(getClis());
 });
 
+// Expand ~ and resolve a working-directory path supplied by the client.
+function resolveDir(input: unknown): string {
+  const home = os.homedir();
+  let value = String(input ?? '').trim();
+  if (!value || value === '~') return home;
+  if (value.startsWith('~/')) value = path.join(home, value.slice(2));
+  return path.resolve(value);
+}
+
+app.get('/api/browse', requireAuth, async (req, res) => {
+  const dir = resolveDir(req.query.path);
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    const dirs = entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+      .sort((a, b) => a.localeCompare(b));
+    res.json({ path: dir, parent: path.dirname(dir), home: os.homedir(), dirs });
+  } catch {
+    res.status(404).json({ error: `Folder not found: ${dir}` });
+  }
+});
+
 app.get('/api/sessions', requireAuth, async (_req, res) => {
   res.json(await buildSessionList());
 });
@@ -65,13 +90,19 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
   const { cli, title, cwd, input } = req.body || {};
   const def = getClis().find((candidate) => candidate.id === cli);
   if (!def) {
-    res.status(400).json({ code: 'unknown_cli', error: 'CLI inconnue.' } satisfies ApiErrorBody);
+    res.status(400).json({ code: 'unknown_cli', error: 'Unknown CLI.' } satisfies ApiErrorBody);
+    return;
+  }
+  const dir = resolveDir(cwd);
+  const stat = await fs.promises.stat(dir).catch(() => null);
+  if (!stat?.isDirectory()) {
+    res.status(400).json({ code: 'invalid_cwd', error: `Folder not found: ${dir}` } satisfies ApiErrorBody);
     return;
   }
   const id = `${PREFIX}${crypto.randomBytes(4).toString('hex')}`;
   try {
     await ensureCliAvailable(def);
-    await createSession(id, def.command, cwd);
+    await createSession(id, def.command, dir);
   } catch (err) {
     if (err instanceof CliUnavailableError) {
       res.status(422).json({
@@ -94,8 +125,8 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
     created: Date.now(),
   });
   if (input) {
-    // Give agent CLIs a moment to boot before sending the first prompt.
-    const delay = def.command ? 1500 : 0;
+    // Give the shell + agent CLI a moment to boot before sending the first prompt.
+    const delay = def.command ? 2000 : 250;
     setTimeout(() => void sendInput(id, String(input)).catch(() => {}), delay);
   }
   void pokeEvents();
@@ -197,7 +228,7 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
   } catch (err) {
     console.error('pty spawn failed:', err);
     if (ws.readyState === ws.OPEN) {
-      ws.send('\r\n\x1b[31m[impossible d\u2019attacher le terminal]\x1b[0m\r\n');
+      ws.send('\r\n\x1b[31m[failed to attach the terminal]\x1b[0m\r\n');
       ws.close(1011, 'pty spawn failed');
     }
     return;

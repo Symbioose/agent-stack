@@ -49,7 +49,11 @@ export const api = {
     }),
   clis: () => request<CliDef[]>('/api/clis'),
   sessions: () => request<Session[]>('/api/sessions'),
-  createSession: (body: { cli: string; title?: string; input?: string }) =>
+  browse: (path?: string) =>
+    request<{ path: string; parent: string; home: string; dirs: string[] }>(
+      `/api/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`,
+    ),
+  createSession: (body: { cli: string; title?: string; input?: string; cwd?: string }) =>
     request<{ id: string }>('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   sendInput: (id: string, text: string) =>
     request<{ ok: boolean }>(`/api/sessions/${id}/input`, {

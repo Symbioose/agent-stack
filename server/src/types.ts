@@ -7,6 +7,7 @@ export interface CliDef {
 export type SessionCreateErrorCode =
   | 'unknown_cli'
   | 'cli_unavailable'
+  | 'invalid_cwd'
   | 'session_create_failed';
 
 export interface ApiErrorBody {

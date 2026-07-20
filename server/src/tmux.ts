@@ -51,13 +51,13 @@ export async function listSessions(): Promise<TmuxSession[]> {
 }
 
 export async function createSession(name: string, command: string, cwd?: string): Promise<void> {
-  const args = ['new-session', '-d', '-s', name, '-x', '200', '-y', '50', '-c', cwd || process.env.HOME || '.'];
-  if (command) args.push(command);
-  await runTmux(...args);
+  // Always start a real login shell, then launch the CLI inside it. The user
+  // keeps a usable shell (cd, ls, git...) when the CLI exits instead of the
+  // whole session dying with it.
+  await runTmux('new-session', '-d', '-s', name, '-x', '200', '-y', '50', '-c', cwd || process.env.HOME || '.');
   await runTmux('set-option', '-t', name, 'status', 'off');
   await runTmux('set-option', '-t', name, 'history-limit', '20000');
-  // Keep the window alive after the command exits so the terminal stays usable.
-  await runTmux('set-option', '-t', name, 'remain-on-exit', 'off').catch(() => {});
+  if (command) await sendInput(name, command);
 }
 
 export async function killSession(name: string): Promise<void> {

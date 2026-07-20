@@ -46,7 +46,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
         {!sidebarOpen && (
           <button
             onClick={onOpenSidebar}
-            title="Ouvrir le menu"
+            title="Open sidebar"
             className="flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
           >
             <PanelLeftOpen size={17} />
@@ -75,7 +75,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
         <div className="relative ml-auto" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((open) => !open)}
-            aria-label="Actions de la session"
+            aria-label="Session actions"
             className="flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
           >
             <MoreHorizontal size={18} />
@@ -89,7 +89,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
                 }}
                 className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-[12.5px] transition-colors hover:bg-hover"
               >
-                <Pencil size={14} /> Renommer
+                <Pencil size={14} /> Rename
               </button>
               <button
                 onClick={() => {
@@ -98,7 +98,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
                 }}
                 className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-[12.5px] text-danger transition-colors hover:bg-danger/[0.08]"
               >
-                <Trash2 size={14} /> Supprimer
+                <Trash2 size={14} /> Delete
               </button>
             </div>
           )}

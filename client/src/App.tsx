@@ -16,6 +16,7 @@ export default function App() {
   const [active, setActive] = useState<string | null>(null);
   const [clis, setClis] = useState<CliDef[]>([]);
   const [cli, setCli] = useState('');
+  const [cwd, setCwd] = useState('~');
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile());
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export default function App() {
     api.clis().then((list) => {
       setClis(list);
       setCli((current) => current || list[0]?.id || '');
-    }).catch(() => setCreateError('Impossible de charger la liste des agents.'));
+    }).catch(() => setCreateError('Failed to load the agent list.'));
   }, [authed]);
 
   if (authed === null) return <div className="flex h-full items-center justify-center text-dim">…</div>;
@@ -55,18 +56,18 @@ export default function App() {
     setCreating(true);
     setCreateError(null);
     try {
-      const { id } = await api.createSession({ cli, title: input.slice(0, 60), input });
+      const { id } = await api.createSession({ cli, title: input.slice(0, 60), input, cwd });
       setActive(id);
       if (isMobile()) setSidebarOpen(false);
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : 'Impossible de lancer la session.');
+      setCreateError(error instanceof Error ? error.message : 'Failed to start the session.');
     } finally {
       setCreating(false);
     }
   };
 
   const deleteSession = async (id: string) => {
-    if (!confirm('Supprimer cette session ? Le processus sera arrêté.')) return;
+    if (!confirm('Delete this session? Its process will be stopped.')) return;
     await api.deleteSession(id);
     if (active === id) setActive(null);
   };
@@ -103,7 +104,7 @@ export default function App() {
         />
       </aside>
       {sidebarOpen && isMobile() && (
-        <button aria-label="Fermer le menu" className="fixed inset-0 z-40 bg-black/55" onClick={() => setSidebarOpen(false)} />
+        <button aria-label="Close sidebar" className="fixed inset-0 z-40 bg-black/55" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main */}
@@ -111,7 +112,7 @@ export default function App() {
         {!active && !sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
-            title="Ouvrir le menu"
+            title="Open sidebar"
             className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
           >
             <PanelLeftOpen size={17} />
@@ -127,12 +128,14 @@ export default function App() {
             onMissing={() => setActive(null)}
           />
         ) : active ? (
-          <div className="flex flex-1 items-center justify-center text-[13px] text-dim">Ouverture de la session…</div>
+          <div className="flex flex-1 items-center justify-center text-[13px] text-dim">Opening session…</div>
         ) : (
           <NewSessionView
             clis={clis}
             cli={cli}
             onCliChange={setCli}
+            cwd={cwd}
+            onCwdChange={setCwd}
             onSubmit={(input) => void createSession(input)}
             pending={creating}
             error={createError}

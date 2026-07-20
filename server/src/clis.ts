@@ -21,7 +21,7 @@ export class CliUnavailableError extends Error {
   code = 'cli_unavailable' as const;
 
   constructor(public command: string) {
-    super(`La commande « ${command} » n'est pas installée sur cette machine.`);
+    super(`"${command}" is not installed on this machine.`);
   }
 }
 

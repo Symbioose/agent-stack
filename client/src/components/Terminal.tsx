@@ -58,7 +58,7 @@ export default function TerminalView({ sessionId, onMissing }: Props) {
         onMissingRef.current?.();
         return;
       }
-      if (event.code !== 1000) term.write('\r\n\x1b[90m[connexion au terminal interrompue]\x1b[0m\r\n');
+      if (event.code !== 1000) term.write('\r\n\x1b[90m[terminal connection lost]\x1b[0m\r\n');
     };
 
     const dispose = term.onData((data) => {

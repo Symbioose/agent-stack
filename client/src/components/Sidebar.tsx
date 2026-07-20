@@ -6,10 +6,10 @@ import type { Session } from '../types';
 
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return "à l'instant";
-  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
-  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
-  return `il y a ${Math.floor(s / 86400)} j`;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
 }
 
 interface Props {
@@ -30,7 +30,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, 
         </span>
         <button
           onClick={onClose}
-          title="Fermer"
+          title="Close"
           className="flex h-9 w-9 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
         >
           <PanelLeftClose size={17} />
@@ -41,11 +41,11 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, 
         onClick={onNew}
         className="mb-5 mt-2.5 flex h-10 items-center gap-2.5 rounded-[10px] border border-border bg-gradient-to-b from-white/[0.035] to-transparent px-3 text-[13.5px] font-medium shadow-[0_6px_18px_rgba(0,0,0,.12)] transition-colors hover:border-white/15 hover:bg-hover"
       >
-        <Plus size={16} /> Nouvelle session
+        <Plus size={16} /> New session
       </button>
 
       <div className="px-2 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-faint">
-        Historique
+        History
       </div>
 
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
@@ -67,8 +67,8 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, 
               </span>
             </span>
             <span
-              aria-label={session.running ? 'Session active' : 'Session inactive'}
-              title={session.running ? 'Active' : 'Inactive'}
+              aria-label={session.running ? 'Active session' : 'Idle session'}
+              title={session.running ? 'Active' : 'Idle'}
               className={clsx(
                 'h-[7px] w-[7px] shrink-0 rounded-full',
                 session.running ? 'bg-green shadow-[0_0_10px_rgba(66,216,137,.35)]' : 'bg-faint',
@@ -77,7 +77,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, 
           </button>
         ))}
         {sessions.length === 0 && (
-          <div className="px-3 py-10 text-center text-[12px] text-faint">Aucune session</div>
+          <div className="px-3 py-10 text-center text-[12px] text-faint">No sessions yet</div>
         )}
       </div>
 
@@ -86,7 +86,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onClose, 
           onClick={onLogout}
           className="flex h-9 items-center gap-2 rounded-lg px-2 text-[12.5px] text-dim transition-colors hover:bg-hover hover:text-text"
         >
-          <LogOut size={14} /> Déconnexion
+          <LogOut size={14} /> Sign out
         </button>
       </div>
     </div>

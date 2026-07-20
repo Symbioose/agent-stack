@@ -75,21 +75,28 @@ test('failed launches return structured errors without sessions or metadata', as
 
   const unknownResponse = await postSession(port, { cli: 'unknown' });
   assert.equal(unknownResponse.status, 400);
-  assert.deepEqual(await unknownResponse.json(), { code: 'unknown_cli', error: 'CLI inconnue.' });
+  assert.deepEqual(await unknownResponse.json(), { code: 'unknown_cli', error: 'Unknown CLI.' });
 
   const unavailableResponse = await postSession(port, { cli: 'missing' });
   assert.equal(unavailableResponse.status, 422);
   assert.deepEqual(await unavailableResponse.json(), {
     code: 'cli_unavailable',
-    error: "La commande « agent-deck-command-that-does-not-exist » n'est pas installée sur cette machine.",
+    error: '"agent-deck-command-that-does-not-exist" is not installed on this machine.',
     command: 'agent-deck-command-that-does-not-exist',
   });
 
-  const failedResponse = await postSession(port, { cli: 'failing' });
-  assert.equal(failedResponse.status, 500);
-  const failedBody = await failedResponse.json() as { code?: string };
-  assert.equal(failedBody.code, 'session_create_failed');
+  const invalidCwdResponse = await postSession(port, { cli: 'shell', cwd: '/nonexistent-agent-deck-folder' });
+  assert.equal(invalidCwdResponse.status, 400);
+  const invalidCwdBody = await invalidCwdResponse.json() as { code?: string };
+  assert.equal(invalidCwdBody.code, 'invalid_cwd');
 
+  // Rejected launches must leave no metadata and no tmux session behind.
   await assert.rejects(fs.readFile(path.join(home, '.agent-deck', 'sessions.json')));
   await assert.rejects(execFileAsync('tmux', ['-L', socket, '-f', '/dev/null', 'list-sessions']));
+
+  // A CLI that exits immediately still leaves a usable shell session.
+  const failingResponse = await postSession(port, { cli: 'failing' });
+  assert.equal(failingResponse.status, 200);
+  const { id } = await failingResponse.json() as { id: string };
+  await execFileAsync('tmux', ['-L', socket, '-f', '/dev/null', 'has-session', '-t', id]);
 });

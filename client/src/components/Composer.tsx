@@ -1,22 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Check, ChevronDown } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, ChevronUp, CornerLeftUp, Folder, House } from 'lucide-react';
 import { clsx } from 'clsx';
 import CliIcon from './CliIcon';
+import { api } from '../api';
 import type { CliDef } from '../types';
 
 interface Props {
   clis: CliDef[];
   cli: string;
   onCliChange: (id: string) => void;
+  cwd: string;
+  onCwdChange: (path: string) => void;
   onSubmit: (text: string) => void;
   pending: boolean;
 }
 
-export default function Composer({ clis, cli, onCliChange, onSubmit, pending }: Props) {
+interface BrowseState {
+  path: string;
+  parent: string;
+  home: string;
+  dirs: string[];
+}
+
+function shortenPath(value: string, home?: string): string {
+  if (home && value.startsWith(home)) return `~${value.slice(home.length)}` || '~';
+  return value;
+}
+
+export default function Composer({ clis, cli, onCliChange, cwd, onCwdChange, onSubmit, pending }: Props) {
   const [text, setText] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [cliOpen, setCliOpen] = useState(false);
+  const [dirOpen, setDirOpen] = useState(false);
+  const [browse, setBrowse] = useState<BrowseState | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
+  const cliRef = useRef<HTMLDivElement>(null);
+  const dirRef = useRef<HTMLDivElement>(null);
   const selected = clis.find((item) => item.id === cli) || clis[0];
 
   useEffect(() => inputRef.current?.focus(), []);
@@ -29,13 +47,25 @@ export default function Composer({ clis, cli, onCliChange, onSubmit, pending }: 
   }, [text]);
 
   useEffect(() => {
-    if (!pickerOpen) return;
+    if (!cliOpen && !dirOpen) return;
     const close = (event: MouseEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
+      const target = event.target as Node;
+      if (!cliRef.current?.contains(target)) setCliOpen(false);
+      if (!dirRef.current?.contains(target)) setDirOpen(false);
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
-  }, [pickerOpen]);
+  }, [cliOpen, dirOpen]);
+
+  const openBrowser = async (path?: string) => {
+    try {
+      const data = await api.browse(path ?? cwd);
+      setBrowse(data);
+      setDirOpen(true);
+    } catch {
+      setBrowse(null);
+    }
+  };
 
   const submit = () => {
     const value = text.trim();
@@ -43,12 +73,14 @@ export default function Composer({ clis, cli, onCliChange, onSubmit, pending }: 
     onSubmit(value);
   };
 
+  const displayedCwd = browse ? shortenPath(cwd, browse.home) : cwd;
+
   return (
     <div className="w-full rounded-[15px] border border-border bg-elevated/95 p-3.5 shadow-[0_22px_60px_rgba(0,0,0,.4),inset_0_1px_rgba(255,255,255,.03)] backdrop-blur-xl transition-colors focus-within:border-white/20">
       <textarea
         ref={inputRef}
         rows={1}
-        placeholder="Décris la tâche à exécuter…"
+        placeholder="Describe the task to run…"
         value={text}
         disabled={pending}
         onChange={(event) => setText(event.target.value)}
@@ -60,49 +92,126 @@ export default function Composer({ clis, cli, onCliChange, onSubmit, pending }: 
         }}
         className="min-h-11 max-h-[180px] w-full resize-none bg-transparent px-0.5 text-[15px] leading-relaxed text-text outline-none placeholder:text-faint disabled:opacity-60"
       />
-      <div className="mt-2 flex items-end justify-between">
-        {selected ? (
-          <div className="relative" ref={pickerRef}>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {selected && (
+            <div className="relative" ref={cliRef}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setCliOpen((open) => !open);
+                  setDirOpen(false);
+                }}
+                className="flex h-8 items-center gap-2 rounded-lg border border-border bg-white/[0.015] px-2.5 text-[12.5px] text-text transition-colors hover:bg-hover disabled:opacity-50"
+              >
+                <CliIcon cli={selected.id} label={selected.label} size={18} />
+                <span>{selected.label}</span>
+                <ChevronDown size={13} className={clsx('text-dim transition-transform', cliOpen && 'rotate-180')} />
+              </button>
+              {cliOpen && (
+                <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-[220px] animate-fade-in rounded-xl border border-border bg-elevated p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.5)]">
+                  {clis.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onCliChange(item.id);
+                        setCliOpen(false);
+                      }}
+                      className={clsx(
+                        'flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-hover',
+                        item.id === cli && 'bg-active',
+                      )}
+                    >
+                      <CliIcon cli={item.id} label={item.label} size={20} />
+                      <span className="flex-1">{item.label}</span>
+                      {item.id === cli && <Check size={14} className="text-dim" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="relative min-w-0" ref={dirRef}>
             <button
               type="button"
               disabled={pending}
-              onClick={() => setPickerOpen((open) => !open)}
-              className="flex h-8 items-center gap-2 rounded-lg border border-border bg-white/[0.015] px-2.5 text-[12.5px] text-text transition-colors hover:bg-hover disabled:opacity-50"
+              title="Working folder"
+              onClick={() => {
+                setCliOpen(false);
+                if (dirOpen) setDirOpen(false);
+                else void openBrowser();
+              }}
+              className="flex h-8 max-w-[220px] items-center gap-1.5 rounded-lg border border-border bg-white/[0.015] px-2.5 text-[12.5px] text-dim transition-colors hover:bg-hover hover:text-text disabled:opacity-50 max-sm:max-w-[130px]"
             >
-              <CliIcon cli={selected.id} label={selected.label} size={18} />
-              <span>{selected.label}</span>
-              <ChevronDown size={13} className={clsx('text-dim transition-transform', pickerOpen && 'rotate-180')} />
+              <Folder size={13} className="shrink-0" />
+              <span className="truncate">{displayedCwd}</span>
+              <ChevronUp size={13} className={clsx('shrink-0 transition-transform', dirOpen && 'rotate-180')} />
             </button>
-            {pickerOpen && (
-              <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-[220px] animate-fade-in rounded-xl border border-border bg-elevated p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.5)]">
-                {clis.map((item) => (
+            {dirOpen && browse && (
+              <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 w-[300px] animate-fade-in rounded-xl border border-border bg-elevated shadow-[0_16px_44px_rgba(0,0,0,.5)] max-sm:w-[260px]">
+                <div className="flex items-center gap-1.5 border-b border-border-soft px-2.5 py-2">
                   <button
-                    key={item.id}
+                    type="button"
+                    title="Parent folder"
+                    onClick={() => void openBrowser(browse.parent)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-dim transition-colors hover:bg-hover hover:text-text"
+                  >
+                    <CornerLeftUp size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Home"
+                    onClick={() => void openBrowser(browse.home)}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-dim transition-colors hover:bg-hover hover:text-text"
+                  >
+                    <House size={13} />
+                  </button>
+                  <span className="min-w-0 flex-1 truncate text-right text-[11.5px] text-faint">
+                    {shortenPath(browse.path, browse.home)}
+                  </span>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto p-1.5">
+                  {browse.dirs.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => void openBrowser(`${browse.path}/${name}`)}
+                      className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[12.5px] transition-colors hover:bg-hover"
+                    >
+                      <Folder size={13} className="shrink-0 text-faint" />
+                      <span className="truncate">{name}</span>
+                    </button>
+                  ))}
+                  {browse.dirs.length === 0 && (
+                    <div className="px-2 py-3 text-center text-[12px] text-faint">No subfolders</div>
+                  )}
+                </div>
+                <div className="border-t border-border-soft p-1.5">
+                  <button
                     type="button"
                     onClick={() => {
-                      onCliChange(item.id);
-                      setPickerOpen(false);
+                      onCwdChange(browse.path);
+                      setDirOpen(false);
                     }}
-                    className={clsx(
-                      'flex h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors hover:bg-hover',
-                      item.id === cli && 'bg-active',
-                    )}
+                    className="flex h-8 w-full items-center justify-center rounded-lg bg-text text-[12.5px] font-medium text-bg transition-opacity hover:opacity-90"
                   >
-                    <CliIcon cli={item.id} label={item.label} size={20} />
-                    <span className="flex-1">{item.label}</span>
-                    {item.id === cli && <Check size={14} className="text-dim" />}
+                    Use this folder
                   </button>
-                ))}
+                </div>
               </div>
             )}
           </div>
-        ) : <span />}
+        </div>
+
         <button
           type="button"
           onClick={submit}
           disabled={!text.trim() || pending || !selected}
-          aria-label="Lancer la session"
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-text text-bg shadow-[0_5px_14px_rgba(255,255,255,.08)] transition-opacity hover:opacity-85 disabled:opacity-25"
+          aria-label="Start session"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text text-bg shadow-[0_5px_14px_rgba(255,255,255,.08)] transition-opacity hover:opacity-85 disabled:opacity-25"
         >
           <ArrowUp size={16} strokeWidth={2.5} />
         </button>
