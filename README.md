@@ -1,53 +1,53 @@
 # Agent Deck
 
-Interface web pour piloter tes agents CLI (Claude Code, Codex, Gemini CLI, OpenCode…) à distance, depuis ton PC ou ton téléphone.
+A web interface to drive your CLI coding agents (Claude Code, Codex, Gemini CLI, OpenCode…) remotely, from your computer or your phone.
 
-Chaque « session » est une **session tmux** sur ta machine : elle continue de tourner même quand tu fermes ton navigateur, ton PC ou ton téléphone. L'UI (façon Devin/ChatGPT) affiche la vraie CLI en temps réel via xterm.js + WebSocket.
+Every session is a **tmux session** on your machine: it keeps running even after you close your browser, your laptop, or your phone. The UI (Devin/ChatGPT style) streams the real CLI in real time through xterm.js + WebSocket.
 
-## Fonctionnalités
+## Features
 
-- **Nouvelle session** : composer central avec Claude Code, Codex, Gemini CLI, OpenCode, Devin, Grok Code et Shell.
-- **Logos officiels** et interface minimal premium, responsive mobile.
-- **Historique temps réel** : ordre chronologique, titre, CLI et point vert/gris poussé par WebSocket.
-- **Terminal quasi plein écran** : interaction directe avec la vraie CLI, sans deuxième zone de saisie.
-- **Sessions persistantes et isolées** : Agent Deck utilise son propre serveur tmux (`-L agent-deck -f /dev/null`), sans charger tes plugins ou ta configuration tmux personnelle.
-- **Scrollback restauré** à la reconnexion, renommage/suppression depuis les actions de session.
-- **Auth par mot de passe** et **PWA installable**.
+- **New session**: a central composer with Claude Code, Codex, Gemini CLI, OpenCode, Devin, Grok Code, and Shell — pick the working folder (or create one) before launching.
+- **Official brand logos** and a minimal, premium, mobile-friendly interface.
+- **Live chat-like history**: sorted by last interaction, with a status dot per session — pulsing amber while the agent works, green when it finished and is waiting for you, gray when paused for a long time.
+- **Near-fullscreen terminal**: you interact directly with the real CLI. Sessions start inside a real login shell, so you keep a usable shell when the agent exits.
+- **Persistent and isolated sessions**: Agent Deck runs its own tmux server (`-L agent-deck -f /dev/null`) and never loads your personal tmux config or plugins.
+- **Scrollback restored** on reconnect; rename/delete from the session actions or the sidebar.
+- **Password auth** and **installable PWA**.
 
 ## Stack
 
-- **Serveur** : Node + TypeScript, Express, `node-pty`, `ws`, tmux.
-- **Client** : React 18 + TypeScript + Vite + Tailwind CSS v4 + xterm.js.
+- **Server**: Node + TypeScript, Express, `node-pty`, `ws`, tmux.
+- **Client**: React 18 + TypeScript + Vite + Tailwind CSS v4 + xterm.js + framer-motion.
 
-## Installation (VM Ubuntu)
+## Installation (Ubuntu VM)
 
 ```bash
-sudo apt-get install -y tmux build-essential python3   # node-pty compile en natif si besoin
-git clone <ton-repo> agent-deck
+sudo apt-get install -y tmux build-essential python3   # node-pty may compile natively
+git clone <your-repo> agent-deck
 cd agent-deck
-npm install          # installe tout + fixe les permissions node-pty (postinstall)
-npm run build        # build client (Vite) + serveur (tsc)
+npm install          # installs everything + fixes node-pty permissions (postinstall)
+npm run build        # builds the client (Vite) and the server (tsc)
 ```
 
-## Lancement
+## Running
 
 ```bash
-AGENT_DECK_PASSWORD='ton-mot-de-passe' \
-AGENT_DECK_SECRET='une-longue-chaine-aleatoire' \
+AGENT_DECK_PASSWORD='your-password' \
+AGENT_DECK_SECRET='a-long-random-string' \
 PORT=3000 npm start
 ```
 
-Puis ouvre `http://IP_DE_TA_VM:3000` (pense à ouvrir le port dans le firewall Oracle + `ufw`).
+Then open `http://YOUR_VM_IP:3000` (remember to open the port in your cloud firewall + `ufw`).
 
-### Variables d'environnement
+### Environment variables
 
-| Variable | Rôle |
+| Variable | Purpose |
 |---|---|
-| `AGENT_DECK_PASSWORD` | Mot de passe de connexion. **Non défini = auth désactivée** (local uniquement). |
-| `AGENT_DECK_SECRET` | Clé de signature des tokens. **Si définie, tu restes connecté après un redémarrage** du serveur. Sinon une clé aléatoire est générée à chaque boot (il faut se reconnecter). Génère-la avec `openssl rand -hex 32`. |
-| `PORT` / `HOST` | Port (défaut `3000`) et interface d'écoute (défaut `0.0.0.0`). |
+| `AGENT_DECK_PASSWORD` | Login password. **Unset = auth disabled** (local use only). |
+| `AGENT_DECK_SECRET` | Token signing key. **When set, you stay logged in across server restarts.** Otherwise a random key is generated at each boot (you must log in again). Generate one with `openssl rand -hex 32`. |
+| `PORT` / `HOST` | Port (default `3000`) and bind address (default `0.0.0.0`). |
 
-### En service systemd (recommandé)
+### As a systemd service (recommended)
 
 ```bash
 sudo tee /etc/systemd/system/agent-deck.service <<'EOF'
@@ -72,40 +72,40 @@ sudo systemctl enable --now agent-deck
 
 ## Docker
 
-Une image toute prête (build + tmux inclus) :
+A ready-to-run image (build + tmux included):
 
 ```bash
 docker build -t agent-deck .
 
 docker run -d --name agent-deck \
   -p 3000:3000 \
-  -e AGENT_DECK_PASSWORD='ton-mot-de-passe' \
+  -e AGENT_DECK_PASSWORD='your-password' \
   -e AGENT_DECK_SECRET="$(openssl rand -hex 32)" \
   -v agent-deck-data:/root/.agent-deck \
   --restart unless-stopped \
   agent-deck
 ```
 
-Le volume `agent-deck-data` conserve les métadonnées des sessions (`~/.agent-deck`) entre les redémarrages du conteneur.
+The `agent-deck-data` volume keeps session metadata (`~/.agent-deck`) across container restarts.
 
-> ⚠️ Les sessions tmux vivent **dans le conteneur**. Pour utiliser Claude Code / Codex / etc., ces CLIs doivent être installées dans l'image (ajoute-les au `Dockerfile`) ou tu montes leur binaire. Si tes CLIs sont déjà installées sur la VM, le déploiement **systemd** ci-dessus est souvent plus simple que Docker.
+> ⚠️ tmux sessions live **inside the container**. To use Claude Code / Codex / etc., those CLIs must be installed in the image (add them to the `Dockerfile`) or mounted in. If your CLIs are already installed on the VM, the **systemd** deployment above is usually simpler than Docker.
 
-## HTTPS (fortement recommandé)
+## HTTPS (strongly recommended)
 
-Mets un reverse proxy (Caddy est le plus simple) devant — indispensable pour la PWA sur mobile :
+Put a reverse proxy in front (Caddy is the simplest) — required for the PWA on mobile:
 
 ```
 # /etc/caddy/Caddyfile
-ton-domaine.com {
+your-domain.com {
     reverse_proxy localhost:3000
 }
 ```
 
-Caddy gère le certificat Let's Encrypt automatiquement, et les WebSockets passent sans config.
+Caddy handles the Let's Encrypt certificate automatically, and WebSockets pass through with no extra config.
 
-## Personnaliser les CLIs
+## Customizing the CLIs
 
-Crée `~/.agent-deck/clis.json` :
+Create `~/.agent-deck/clis.json`:
 
 ```json
 [
@@ -115,23 +115,23 @@ Crée `~/.agent-deck/clis.json` :
 ]
 ```
 
-L'`id` détermine le logo affiché (`claude`, `codex`, `gemini`, `opencode`, `devin`, `grok`, `shell`). Les CLIs absentes restent visibles ; le lancement affiche une erreur claire sans créer de session orpheline.
+The `id` determines the displayed logo (`claude`, `codex`, `gemini`, `opencode`, `devin`, `grok`, `shell`). Missing CLIs stay visible in the picker; launching one shows a clear error without creating an orphan session.
 
-## Développement
+## Development
 
 ```bash
-npm run dev         # serveur :3000 (tsx watch) + Vite HMR :5173 (proxy /api et /ws)
-npm test            # tests serveur + composants React
-npm run typecheck   # vérifie les types côté serveur et client
-npm run verify      # tests + types + build de production
-AGENT_DECK_PASSWORD=ton-mot-de-passe npm run smoke
+npm run dev         # server :3000 (tsx watch) + Vite HMR :5173 (proxies /api and /ws)
+npm test            # server tests + React component tests
+npm run typecheck   # type-checks server and client
+npm run verify      # tests + types + production build
+AGENT_DECK_PASSWORD=your-password npm run smoke
 ```
 
-`AGENT_DECK_TMUX_SOCKET` permet de remplacer le nom du socket tmux isolé, principalement pour les tests.
+`AGENT_DECK_TMUX_SOCKET` overrides the isolated tmux socket name, mainly for tests.
 
 ## Notes
 
-- Avec `AGENT_DECK_SECRET`, les tokens restent valides après un redémarrage ; sans cette variable, il faut se reconnecter.
-- Supprimer une session **tue** le processus tmux qui tourne dedans.
-- Les métadonnées des sessions sont dans `~/.agent-deck/sessions.json`.
-- Sur macOS/certaines plateformes, `node-pty` extrait son binaire `spawn-helper` sans le bit exécutable (→ `posix_spawnp failed`). Le `postinstall` (`scripts/fix-node-pty.mjs`) corrige ça automatiquement.
+- With `AGENT_DECK_SECRET`, tokens stay valid across restarts; without it, you must log in again.
+- Deleting a session **kills** the tmux process running inside it.
+- Session metadata lives in `~/.agent-deck/sessions.json`.
+- On macOS/some platforms, `node-pty` extracts its `spawn-helper` binary without the executable bit (→ `posix_spawnp failed`). The `postinstall` script (`scripts/fix-node-pty.mjs`) fixes this automatically.
