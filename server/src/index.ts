@@ -82,6 +82,25 @@ app.get('/api/browse', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/mkdir', requireAuth, async (req, res) => {
+  const parent = resolveDir(req.body?.path);
+  const name = String(req.body?.name ?? '').trim();
+  if (!name || name.includes('/') || name.includes('\\') || name === '.' || name === '..') {
+    res.status(400).json({ error: 'Invalid folder name.' });
+    return;
+  }
+  const target = path.join(parent, name);
+  try {
+    await fs.promises.mkdir(target);
+    res.json({ path: target });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    res.status(400).json({
+      error: code === 'EEXIST' ? 'A folder with this name already exists.' : `Could not create folder: ${code || 'unknown error'}`,
+    });
+  }
+});
+
 app.get('/api/sessions', requireAuth, async (_req, res) => {
   res.json(await buildSessionList());
 });

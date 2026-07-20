@@ -53,6 +53,8 @@ export const api = {
     request<{ path: string; parent: string; home: string; dirs: string[] }>(
       `/api/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`,
     ),
+  mkdir: (path: string, name: string) =>
+    request<{ path: string }>('/api/mkdir', { method: 'POST', body: JSON.stringify({ path, name }) }),
   createSession: (body: { cli: string; title?: string; input?: string; cwd?: string }) =>
     request<{ id: string }>('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   sendInput: (id: string, text: string) =>

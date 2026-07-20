@@ -23,24 +23,29 @@ async function runTmux(...args: string[]) {
 // Commands that mean the pane is "idle" (just a shell prompt waiting).
 const SHELLS = new Set(['bash', 'zsh', 'fish', 'sh', 'dash', 'tmux']);
 
+// A pane is "working" if it produced output within this window.
+const ACTIVITY_WINDOW_MS = 4000;
+
 export async function listSessions(): Promise<TmuxSession[]> {
   try {
     const { stdout } = await runTmux(
       'list-sessions',
       '-F',
-      '#{session_name}\t#{session_created}\t#{session_attached}\t#{pane_current_command}',
+      '#{session_name}\t#{session_created}\t#{session_attached}\t#{pane_current_command}\t#{window_activity}',
     );
+    const now = Date.now();
     return stdout
       .trim()
       .split('\n')
       .filter(Boolean)
       .map((line): TmuxSession => {
-        const [name, created, attached, cmd] = line.split('\t');
+        const [name, created, attached, cmd, activity] = line.split('\t');
+        const activeRecently = now - Number(activity) * 1000 < ACTIVITY_WINDOW_MS;
         return {
           name,
           created: Number(created) * 1000,
           attached: attached !== '0',
-          running: !SHELLS.has(cmd),
+          state: SHELLS.has(cmd) ? 'idle' : activeRecently ? 'working' : 'waiting',
           command: cmd,
         };
       })

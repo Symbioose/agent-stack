@@ -96,6 +96,7 @@ export default function App() {
             setCreateError(null);
             if (isMobile()) setSidebarOpen(false);
           }}
+          onDelete={(id) => void deleteSession(id)}
           onClose={() => setSidebarOpen(false)}
           onLogout={() => {
             clearToken();

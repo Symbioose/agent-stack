@@ -6,7 +6,7 @@ vi.mock('./Terminal', () => ({ default: () => <div data-testid="terminal" /> }))
 
 const session = {
   id: 'deck_1', title: 'Fix the terminal', cli: 'claude', cliLabel: 'Claude Code',
-  created: 1, attached: false, running: true,
+  created: 1, attached: false, state: 'working' as const,
 };
 
 describe('SessionView', () => {

@@ -19,7 +19,7 @@ export async function buildSessionList(): Promise<SessionDTO[]> {
         cliLabel: meta?.cliLabel || 'Shell',
         created: meta?.created || s.created,
         attached: s.attached,
-        running: s.running,
+        state: s.state,
       };
     })
     .sort((a, b) => b.created - a.created);

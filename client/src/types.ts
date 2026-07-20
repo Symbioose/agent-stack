@@ -10,6 +10,8 @@ export interface ApiErrorBody {
   command?: string;
 }
 
+export type SessionState = 'working' | 'waiting' | 'idle';
+
 export interface Session {
   id: string;
   title: string;
@@ -17,5 +19,5 @@ export interface Session {
   cliLabel: string;
   created: number;
   attached: boolean;
-  running: boolean;
+  state: SessionState;
 }
