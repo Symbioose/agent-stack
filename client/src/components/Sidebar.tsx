@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { LogOut, PanelLeftClose, Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import Lenis from 'lenis';
 import { clsx } from 'clsx';
 import BrandMark from './BrandMark';
 import CliIcon from './CliIcon';
@@ -30,6 +32,25 @@ interface Props {
 }
 
 export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete, onClose, onLogout }: Props) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Buttery smooth scrolling for the history list (Lenis).
+  useEffect(() => {
+    const wrapper = listRef.current;
+    if (!wrapper || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const lenis = new Lenis({ wrapper, lerp: 0.16 });
+    let frame = 0;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      frame = requestAnimationFrame(raf);
+    };
+    frame = requestAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(frame);
+      lenis.destroy();
+    };
+  }, []);
+
   return (
     <div className="flex h-full flex-col bg-sidebar px-2.5 pb-2.5 pt-3">
       <div className="flex h-10 items-center justify-between px-1.5">
@@ -56,7 +77,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
         History
       </div>
 
-      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
         <AnimatePresence initial={false}>
           {sessions.map((session) => {
             const dot = DOT[session.state] ?? DOT.idle;

@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
+import Aurora from './Aurora';
 import Composer from './Composer';
+import SplitText from './SplitText';
 import type { CliDef } from '../types';
 
 interface Props {
@@ -16,15 +18,16 @@ interface Props {
 export default function NewSessionView({ clis, cli, onCliChange, cwd, onCwdChange, onSubmit, pending, error }: Props) {
   return (
     <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 pb-[8vh]">
-      <div className="pointer-events-none absolute left-1/2 top-[38%] h-[520px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(102,119,190,.065),transparent_66%)]" />
+      <Aurora className="pointer-events-none absolute inset-x-0 top-0 h-[62%] opacity-80" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg via-bg/35 to-transparent" />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: 'easeOut' }}
         className="relative w-full max-w-[680px] text-center"
       >
-        <h1 className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-[30px] font-semibold tracking-[-0.035em] text-transparent max-sm:text-[24px]">
-          What are we running?
+        <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-text max-sm:text-[24px]">
+          <SplitText text="What are we running?" />
         </h1>
         <p className="mb-7 mt-2 text-[14px] text-dim max-sm:mx-auto max-sm:max-w-[320px]">
           Pick a folder, pick an agent. Sessions keep running even when you leave.

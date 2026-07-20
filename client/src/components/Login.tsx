@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import BrandMark from './BrandMark';
+import VantaBackground from './VantaBackground';
 import { api, setToken } from '../api';
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
@@ -21,10 +23,15 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="flex h-full items-center justify-center px-4">
-      <form
+    <div className="relative flex h-full items-center justify-center overflow-hidden px-4">
+      <VantaBackground className="absolute inset-0 opacity-70" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg via-transparent to-bg/60" />
+      <motion.form
+        initial={{ opacity: 0, y: 14, scale: 0.985 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         onSubmit={submit}
-        className="flex w-[340px] flex-col gap-3.5 rounded-2xl border border-border bg-elevated p-8 shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
+        className="relative flex w-[340px] flex-col gap-3.5 rounded-2xl border border-white/10 bg-elevated/80 p-8 shadow-[0_24px_70px_rgba(0,0,0,0.55),inset_0_1px_rgba(255,255,255,.05)] backdrop-blur-xl"
       >
         <div className="mb-1 flex items-center justify-center gap-2.5 text-[17px] font-semibold">
           <BrandMark size={26} /> Agent Deck
@@ -46,7 +53,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         >
           Sign in
         </button>
-      </form>
+      </motion.form>
     </div>
   );
 }
