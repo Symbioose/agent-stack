@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import Aurora from './Aurora';
+import GalaxyBackground from './GalaxyBackground';
 import Composer from './Composer';
 import SplitText from './SplitText';
 import type { CliDef } from '../types';
@@ -18,8 +18,8 @@ interface Props {
 export default function NewSessionView({ clis, cli, onCliChange, cwd, onCwdChange, onSubmit, pending, error }: Props) {
   return (
     <div className="relative isolate flex min-h-0 flex-1 items-center justify-center overflow-hidden px-5 pb-[8vh]">
-      <Aurora className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[62%] transform-gpu opacity-80 will-change-transform" />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-t from-bg via-bg/35 to-transparent" />
+      <GalaxyBackground className="pointer-events-none absolute inset-0 z-0" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-t from-bg via-bg/25 to-transparent" />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
