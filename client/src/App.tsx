@@ -5,7 +5,7 @@ import Sidebar from './components/Sidebar';
 import Login from './components/Login';
 import NewSessionView from './components/NewSessionView';
 import SessionView from './components/SessionView';
-import { api, clearToken } from './api';
+import { api, clearToken, getToken } from './api';
 import { useSessions } from './useSessions';
 import type { CliDef } from './types';
 
@@ -29,6 +29,10 @@ export default function App() {
         const config = await api.config();
         if (!config.authRequired) {
           setAuthed(true);
+          return;
+        }
+        if (!getToken()) {
+          setAuthed(false);
           return;
         }
         await api.sessions();
