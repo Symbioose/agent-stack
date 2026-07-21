@@ -104,14 +104,32 @@ export default function GalaxyBackground({ className }: { className?: string }) 
       try {
         renderer?.gl.getExtension('WEBGL_lose_context')?.loseContext();
       } catch {
-        // The static fallback remains usable even when context loss is unavailable.
       } finally {
         canvas?.remove();
       }
     };
 
     try {
-      renderer = new Renderer({ alpha: true, antialias: false, dpr: Math.min(window.devicePixelRatio, 1.5) });
+      const canvas = document.createElement('canvas');
+      const contextAttributes = {
+        alpha: true,
+        depth: true,
+        stencil: false,
+        antialias: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+        powerPreference: 'default' as WebGLPowerPreference,
+      };
+      const webgl2Context = canvas.getContext('webgl2', contextAttributes);
+      const context = webgl2Context ?? canvas.getContext('webgl', contextAttributes);
+      if (!context) return;
+
+      renderer = new Renderer({
+        canvas,
+        webgl: webgl2Context ? 2 : 1,
+        dpr: Math.min(window.devicePixelRatio, 1.5),
+        ...contextAttributes,
+      });
       const gl = renderer.gl;
       const geometry = new Triangle(gl);
       const program = new Program(gl, {
