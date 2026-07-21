@@ -29,9 +29,9 @@ function shortenPath(value: string, home?: string): string {
 }
 
 const dropdownMotion = {
-  initial: { opacity: 0, y: 6, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: 4, scale: 0.98 },
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 4 },
   transition: { duration: 0.13, ease: 'easeOut' as const },
 };
 
@@ -104,7 +104,7 @@ export default function Composer({ clis, cli, onCliChange, cwd, onCwdChange, onS
   const displayedCwd = browse ? shortenPath(cwd, browse.home) : cwd;
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-elevated/95 p-3.5 shadow-[0_22px_60px_rgba(0,0,0,.4),inset_0_1px_rgba(255,255,255,.035)] backdrop-blur-xl transition-colors focus-within:border-white/20">
+    <div className="relative z-10 w-full rounded-2xl border border-border bg-elevated p-3.5 shadow-[0_22px_60px_rgba(0,0,0,.4),inset_0_1px_rgba(255,255,255,.035)] transition-colors focus-within:border-white/20">
       <textarea
         ref={inputRef}
         rows={1}
@@ -141,7 +141,7 @@ export default function Composer({ clis, cli, onCliChange, cwd, onCwdChange, onS
                 {cliOpen && (
                   <motion.div
                     {...dropdownMotion}
-                    className="absolute bottom-[calc(100%+8px)] left-0 z-20 min-w-[220px] origin-bottom-left rounded-xl border border-border bg-elevated p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.5)]"
+                    className="absolute bottom-[calc(100%+8px)] left-0 z-30 min-w-[220px] origin-bottom-left rounded-xl border border-border bg-elevated p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.5)]"
                   >
                     {clis.map((item) => (
                       <button
@@ -187,7 +187,7 @@ export default function Composer({ clis, cli, onCliChange, cwd, onCwdChange, onS
               {dirOpen && browse && (
                 <motion.div
                   {...dropdownMotion}
-                  className="absolute bottom-[calc(100%+8px)] left-0 z-20 w-[310px] origin-bottom-left rounded-xl border border-border bg-elevated shadow-[0_16px_44px_rgba(0,0,0,.5)] max-sm:w-[262px]"
+                  className="absolute bottom-[calc(100%+8px)] left-0 z-30 w-[310px] origin-bottom-left rounded-xl border border-border bg-elevated shadow-[0_16px_44px_rgba(0,0,0,.5)] max-sm:w-[262px]"
                 >
                   <div className="flex items-center gap-1 border-b border-border-soft px-2 py-2">
                     <button
