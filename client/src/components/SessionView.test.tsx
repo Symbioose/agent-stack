@@ -9,9 +9,21 @@ const session = {
   created: 1, lastActivity: 1, attached: false, state: 'working' as const,
 };
 
+const renderView = (props: Partial<React.ComponentProps<typeof SessionView>> = {}) => {
+  const defaults = {
+    session,
+    sidebarOpen: true,
+    onOpenSidebar: vi.fn(),
+    onRename: vi.fn(),
+    onDelete: vi.fn(),
+    onMissing: vi.fn(),
+  };
+  return render(<SessionView {...defaults} {...props} />);
+};
+
 describe('SessionView', () => {
   it('renders a terminal without status text or composer', () => {
-    render(<SessionView session={session} sidebarOpen onOpenSidebar={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} onMissing={vi.fn()} />);
+    renderView();
     expect(screen.getByTestId('terminal')).toBeInTheDocument();
     expect(screen.getByText('Fix the terminal')).toBeInTheDocument();
     expect(screen.queryByText(/running/i)).not.toBeInTheDocument();
@@ -19,9 +31,35 @@ describe('SessionView', () => {
   });
 
   it('keeps rename and delete in the overflow menu', () => {
-    render(<SessionView session={session} sidebarOpen onOpenSidebar={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} onMissing={vi.fn()} />);
+    renderView();
     fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
     expect(screen.getByRole('button', { name: 'Rename' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('closes the actions menu on outside click and Escape', () => {
+    renderView();
+    const actions = screen.getByRole('button', { name: 'Session actions' });
+    fireEvent.click(actions);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument();
+    fireEvent.click(actions);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument();
+  });
+
+  it('runs Rename and Delete from the actions menu', () => {
+    const onRename = vi.fn();
+    const onDelete = vi.fn();
+    renderView({ onRename, onDelete });
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const input = screen.getByDisplayValue(session.title);
+    fireEvent.change(input, { target: { value: 'Renamed session' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRename).toHaveBeenCalledWith('Renamed session');
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 });

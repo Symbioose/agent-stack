@@ -26,11 +26,18 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
   }, [renaming]);
   useEffect(() => {
     if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
+    const closeOnPointer = (event: MouseEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnPointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnPointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
   }, [menuOpen]);
 
   const commitRename = () => {
@@ -42,7 +49,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex min-h-[52px] items-center gap-2.5 border-b border-border-soft bg-bg/80 px-4 backdrop-blur-xl max-md:px-2.5">
+      <header className="relative z-20 flex min-h-[52px] items-center gap-2.5 border-b border-border-soft bg-bg px-4 max-md:px-2.5">
         {!sidebarOpen && (
           <button
             onClick={onOpenSidebar}
