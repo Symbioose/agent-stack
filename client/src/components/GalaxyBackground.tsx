@@ -41,13 +41,13 @@ float starLayer(vec2 uv, float scale, float drift, float seed) {
   vec2 grid = uv * scale + vec2(time * drift, time * drift * 0.37);
   vec2 cell = floor(grid);
   vec2 local = fract(grid) - 0.5;
-  float presence = step(0.982, hash21(cell + seed));
+  float presence = step(0.965, hash21(cell + seed));
   vec2 offset = vec2(
     hash21(cell + seed + 1.7),
     hash21(cell + seed + 5.3)
   ) - 0.5;
   float variation = hash21(cell + seed + 9.1);
-  float radius = mix(0.018, 0.07, pow(variation, 9.0));
+  float radius = mix(0.022, 0.08, pow(variation, 9.0));
   float point = 1.0 - smoothstep(0.0, radius, length(local - offset * 0.65));
   float twinkle = 0.72 + 0.28 * sin(time * (0.45 + variation * 0.8) + variation * 6.28318);
   return presence * point * twinkle;
@@ -63,14 +63,14 @@ void main() {
 
   vec3 color = vec3(0.0353, 0.0392, 0.0471);
   vec3 nebulaColor = mix(vec3(0.09, 0.12, 0.3), vec3(0.29, 0.11, 0.4), cloud);
-  color += nebulaColor * nebula * 0.16;
+  color += nebulaColor * nebula * 0.24;
 
   float farStars = starLayer(uv, 24.0, 0.004, 3.0);
   float midStars = starLayer(uv, 42.0, -0.007, 17.0);
   float nearStars = starLayer(uv, 68.0, 0.011, 41.0);
-  color += vec3(0.5, 0.58, 0.9) * farStars * 0.35;
-  color += vec3(0.68, 0.72, 1.0) * midStars * 0.55;
-  color += vec3(0.88, 0.82, 1.0) * nearStars * 0.72;
+  color += vec3(0.5, 0.58, 0.9) * farStars * 0.5;
+  color += vec3(0.68, 0.72, 1.0) * midStars * 0.72;
+  color += vec3(0.88, 0.82, 1.0) * nearStars * 0.92;
 
   float vignette = 1.0 - smoothstep(0.38, 1.28, length(uv));
   color *= mix(0.64, 1.0, vignette);

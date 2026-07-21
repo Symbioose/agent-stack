@@ -134,9 +134,24 @@ input:focus-visible {
   transform: translateZ(0);
   will-change: transform;
   background:
-    radial-gradient(circle at 72% 24%, rgba(92, 67, 163, 0.14), transparent 38%),
-    radial-gradient(circle at 24% 72%, rgba(42, 55, 130, 0.1), transparent 44%),
+    radial-gradient(circle at 72% 24%, rgba(104, 76, 190, 0.22), transparent 40%),
+    radial-gradient(circle at 24% 72%, rgba(50, 66, 158, 0.16), transparent 46%),
     #090a0c;
+}
+
+.galaxy-background::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 0.7;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(220, 225, 255, 0.8) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 21% 64%, rgba(170, 184, 255, 0.65) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 37% 31%, rgba(228, 218, 255, 0.7) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 53% 76%, rgba(172, 190, 255, 0.6) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 69% 42%, rgba(235, 226, 255, 0.75) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 84% 16%, rgba(183, 198, 255, 0.65) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 93% 68%, rgba(226, 218, 255, 0.72) 0 1px, transparent 1.5px);
 }
 
 .galaxy-background canvas {
