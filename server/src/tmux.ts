@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { sessionStateTracker } from './session-state.js';
 import type { TmuxSession } from './types.js';
 
 const exec = promisify(execFile);
@@ -20,20 +21,6 @@ async function runTmux(...args: string[]) {
   return exec('tmux', tmuxArgs(...args));
 }
 
-// Commands that mean the pane is "idle" (just a shell prompt waiting).
-const SHELLS = new Set(['bash', 'zsh', 'fish', 'sh', 'dash', 'tmux']);
-
-// A pane is "working" if it produced output within this window.
-const WORKING_WINDOW_MS = 5000;
-// A silent CLI turns from "waiting" to "idle" after this long.
-const IDLE_AFTER_MS = 30 * 60 * 1000;
-
-function sessionState(cmd: string, sinceActivity: number): TmuxSession['state'] {
-  if (sinceActivity < WORKING_WINDOW_MS) return 'working';
-  if (!SHELLS.has(cmd) && sinceActivity < IDLE_AFTER_MS) return 'waiting';
-  return 'idle';
-}
-
 export async function listSessions(): Promise<TmuxSession[]> {
   try {
     const { stdout } = await runTmux(
@@ -42,25 +29,28 @@ export async function listSessions(): Promise<TmuxSession[]> {
       '#{session_name}\t#{session_created}\t#{session_attached}\t#{pane_current_command}\t#{window_activity}',
     );
     const now = Date.now();
-    return stdout
+    const sessions = stdout
       .trim()
       .split('\n')
       .filter(Boolean)
       .map((line): TmuxSession => {
         const [name, created, attached, cmd, activity] = line.split('\t');
+        const activityAt = Number(activity) * 1000;
         // Bucket activity to 15s so the event stream is not spammed with
         // near-identical payloads while an agent produces output.
-        const lastActivity = Math.floor((Number(activity) * 1000) / 15000) * 15000;
+        const lastActivity = Math.floor(activityAt / 15000) * 15000;
         return {
           name,
           created: Number(created) * 1000,
           lastActivity,
           attached: attached !== '0',
-          state: sessionState(cmd, now - Number(activity) * 1000),
+          state: sessionStateTracker.state(name, cmd, activityAt, now),
           command: cmd,
         };
       })
       .filter((s) => s.name.startsWith(PREFIX));
+    sessionStateTracker.prune(new Set(sessions.map((session) => session.name)));
+    return sessions;
   } catch {
     return []; // no tmux server running yet
   }
@@ -81,6 +71,7 @@ export async function killSession(name: string): Promise<void> {
 }
 
 export async function sendInput(name: string, text: string): Promise<void> {
+  sessionStateTracker.recordInput(name);
   // Send the literal text, then a separate Enter so multi-line stays intact.
   await runTmux('send-keys', '-t', name, '-l', text);
   await runTmux('send-keys', '-t', name, 'Enter');

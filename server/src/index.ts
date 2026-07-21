@@ -16,6 +16,7 @@ import {
   captureScrollback,
   tmuxArgs,
 } from './tmux.js';
+import { sessionStateTracker } from './session-state.js';
 import { getMeta, setMeta, deleteMeta } from './store.js';
 import { authEnabled, checkPassword, issueToken, verifyToken } from './auth.js';
 import { CliUnavailableError, ensureCliAvailable, getClis } from './clis.js';
@@ -267,6 +268,7 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
       if (cols > 0 && rows > 0) term.resize(cols, rows);
       return;
     }
+    sessionStateTracker.recordInput(sessionId);
     term.write(str);
   });
   ws.on('close', () => term.kill());
