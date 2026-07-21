@@ -10,7 +10,11 @@ void main() {
 `;
 
 const FRAGMENT = /* glsl */ `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+#else
+precision mediump float;
+#endif
 uniform float uTime;
 uniform float uMotion;
 uniform vec2 uResolution;
