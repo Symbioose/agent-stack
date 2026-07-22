@@ -8,7 +8,7 @@ const sessions = [
   { id: 'old', title: 'Oldest', cli: 'shell', cliLabel: 'Shell', created: 1, lastActivity: 10, attached: false, state: 'idle' as const },
 ];
 
-const baseProps = { activeId: null, onSelect: vi.fn(), onNew: vi.fn(), onDelete: vi.fn(), onClose: vi.fn(), onLogout: vi.fn() };
+const baseProps = { activeId: null, onSelect: vi.fn(), onNew: vi.fn(), onDelete: vi.fn(), onRename: vi.fn(), onClose: vi.fn(), onLogout: vi.fn() };
 
 describe('Sidebar', () => {
   it('renders chronological history with three status dots', () => {
@@ -37,5 +37,29 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close session Oldest' }));
     expect(onDelete).toHaveBeenCalledWith('old');
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('renames a session from its row without opening it', () => {
+    const onRename = vi.fn();
+    const onSelect = vi.fn();
+    render(<Sidebar {...baseProps} sessions={sessions} onRename={onRename} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename session Middle' }));
+    const input = screen.getByDisplayValue('Middle');
+    fireEvent.change(input, { target: { value: 'Renamed conversation' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRename).toHaveBeenCalledWith('mid', 'Renamed conversation');
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue('Renamed conversation')).not.toBeInTheDocument();
+  });
+
+  it('cancels a rename on Escape without calling onRename', () => {
+    const onRename = vi.fn();
+    render(<Sidebar {...baseProps} sessions={sessions} onRename={onRename} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename session Middle' }));
+    const input = screen.getByDisplayValue('Middle');
+    fireEvent.change(input, { target: { value: 'Discarded' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.getByText('Middle')).toBeInTheDocument();
   });
 });

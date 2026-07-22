@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { LogOut, PanelLeftClose, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { LogOut, PanelLeftClose, Pencil, Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Lenis from 'lenis';
 import { clsx } from 'clsx';
@@ -27,12 +27,31 @@ interface Props {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
   onClose: () => void;
   onLogout: () => void;
 }
 
-export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete, onClose, onLogout }: Props) {
+export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete, onRename, onClose, onLogout }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.select();
+  }, [renamingId]);
+
+  const startRename = (session: Session) => {
+    setRenamingId(session.id);
+    setDraftTitle(session.title);
+  };
+
+  const commitRename = (session: Session) => {
+    const next = draftTitle.trim();
+    if (next && next !== session.title) onRename(session.id, next);
+    setRenamingId(null);
+  };
 
   // Buttery smooth scrolling for the history list (Lenis).
   useEffect(() => {
@@ -100,27 +119,60 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
               >
                 <CliIcon cli={session.cli} label={session.cliLabel} size={26} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium text-text">{session.title}</span>
+                  {renamingId === session.id ? (
+                    <input
+                      ref={renameInputRef}
+                      value={draftTitle}
+                      maxLength={100}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setDraftTitle(event.target.value)}
+                      onBlur={() => commitRename(session)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') commitRename(session);
+                        if (event.key === 'Escape') setRenamingId(null);
+                      }}
+                      className="block w-full rounded-md border border-border bg-bg px-1.5 py-0.5 text-[13px] font-medium text-text outline-none focus:border-white/20"
+                    />
+                  ) : (
+                    <span className="block truncate text-[13px] font-medium text-text">{session.title}</span>
+                  )}
                   <span className="mt-0.5 block truncate text-[11px] text-faint">
                     {session.cliLabel} · {timeAgo(session.lastActivity)}
                   </span>
                 </span>
-                <span
-                  aria-label={`${dot.label} session`}
-                  title={dot.label}
-                  className={clsx('h-[7px] w-[7px] shrink-0 rounded-full transition-opacity group-hover:opacity-0', dot.className)}
-                />
-                <button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(session.id);
-                  }}
-                  title="Close session"
-                  aria-label={`Close session ${session.title}`}
-                  className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-md text-dim opacity-0 transition-all hover:bg-white/[0.06] hover:text-danger group-hover:opacity-100 max-md:opacity-100"
-                >
-                  <X size={14} />
-                </button>
+                {renamingId !== session.id && (
+                  <span
+                    aria-label={`${dot.label} session`}
+                    title={dot.label}
+                    className={clsx('h-[7px] w-[7px] shrink-0 rounded-full transition-opacity group-hover:opacity-0', dot.className)}
+                  />
+                )}
+                {renamingId !== session.id && (
+                  <>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startRename(session);
+                      }}
+                      title="Rename session"
+                      aria-label={`Rename session ${session.title}`}
+                      className="absolute right-9 flex h-7 w-7 items-center justify-center rounded-md text-dim opacity-0 transition-all hover:bg-white/[0.06] hover:text-text group-hover:opacity-100 max-md:opacity-100"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete(session.id);
+                      }}
+                      title="Close session"
+                      aria-label={`Close session ${session.title}`}
+                      className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-md text-dim opacity-0 transition-all hover:bg-white/[0.06] hover:text-danger group-hover:opacity-100 max-md:opacity-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  </>
+                )}
               </motion.div>
             );
           })}

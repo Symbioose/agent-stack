@@ -101,6 +101,7 @@ export default function App() {
             if (isMobile()) setSidebarOpen(false);
           }}
           onDelete={(id) => void deleteSession(id)}
+          onRename={(id, title) => void api.renameSession(id, title)}
           onClose={() => setSidebarOpen(false)}
           onLogout={() => {
             clearToken();
