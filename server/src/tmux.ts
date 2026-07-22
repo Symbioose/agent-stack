@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import os from 'node:os';
 import { promisify } from 'node:util';
 import { sessionStateTracker } from './session-state.js';
 import type { TmuxSession } from './types.js';
@@ -56,11 +57,28 @@ export async function listSessions(): Promise<TmuxSession[]> {
   }
 }
 
+// Resolve the user's real login shell instead of relying on tmux's own
+// default-shell option. That option is derived from the tmux SERVER's
+// environment at the time it first started; a systemd-managed server has no
+// $SHELL and falls back to tmux's compiled-in default (bash) even when the
+// user's actual shell (in /etc/passwd) is something else, such as zsh.
+export function loginShell(): string {
+  try {
+    return process.env.SHELL || os.userInfo().shell || '/bin/sh';
+  } catch {
+    return process.env.SHELL || '/bin/sh';
+  }
+}
+
 export async function createSession(name: string, command: string, cwd?: string): Promise<void> {
   // Always start a real login shell, then launch the CLI inside it. The user
   // keeps a usable shell (cd, ls, git...) when the CLI exits instead of the
   // whole session dying with it.
-  await runTmux('new-session', '-d', '-s', name, '-x', '200', '-y', '50', '-c', cwd || process.env.HOME || '.');
+  await runTmux(
+    'new-session', '-d', '-s', name, '-x', '200', '-y', '50',
+    '-c', cwd || process.env.HOME || '.',
+    `${loginShell()} -l`,
+  );
   await runTmux('set-option', '-t', name, 'status', 'off');
   await runTmux('set-option', '-t', name, 'history-limit', '20000');
   if (command) await sendInput(name, command);
