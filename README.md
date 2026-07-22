@@ -56,6 +56,10 @@ Description=Agent Deck
 After=network.target
 
 [Service]
+# Only signal the tracked npm/node process on stop/restart. The default
+# control-group kill mode would also kill the detached tmux server (and every
+# session running inside it) whenever the service restarts or is updated.
+KillMode=process
 User=ubuntu
 WorkingDirectory=/home/ubuntu/agent-deck
 Environment=AGENT_DECK_PASSWORD=CHANGE_ME
