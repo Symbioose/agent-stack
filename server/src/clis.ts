@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { loginShell } from './shell.js';
 import type { CliDef } from './types.js';
 
 const execFileAsync = promisify(execFile);
@@ -32,9 +33,11 @@ export function getDefaultClis(): CliDef[] {
 export async function ensureCliAvailable(cli: CliDef): Promise<void> {
   if (!cli.command) return;
   const executable = cli.command.trim().split(/\s+/)[0];
-  const shell = process.env.SHELL || '/bin/sh';
+  // Check availability through the user's real login shell (see shell.ts):
+  // under systemd there is no $SHELL, and a plain /bin/sh wouldn't see PATH
+  // entries set up in the user's own shell dotfiles (custom CLI installs).
   try {
-    await execFileAsync(shell, ['-lc', 'command -v -- "$1" >/dev/null', 'agent-deck', executable]);
+    await execFileAsync(loginShell(), ['-lic', 'command -v -- "$1" >/dev/null', 'agent-deck', executable]);
   } catch {
     throw new CliUnavailableError(executable);
   }

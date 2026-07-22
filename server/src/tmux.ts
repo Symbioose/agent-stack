@@ -1,8 +1,10 @@
 import { execFile } from 'node:child_process';
-import os from 'node:os';
 import { promisify } from 'node:util';
 import { sessionStateTracker } from './session-state.js';
+import { loginShell } from './shell.js';
 import type { TmuxSession } from './types.js';
+
+export { loginShell } from './shell.js';
 
 const exec = promisify(execFile);
 
@@ -54,19 +56,6 @@ export async function listSessions(): Promise<TmuxSession[]> {
     return sessions;
   } catch {
     return []; // no tmux server running yet
-  }
-}
-
-// Resolve the user's real login shell instead of relying on tmux's own
-// default-shell option. That option is derived from the tmux SERVER's
-// environment at the time it first started; a systemd-managed server has no
-// $SHELL and falls back to tmux's compiled-in default (bash) even when the
-// user's actual shell (in /etc/passwd) is something else, such as zsh.
-export function loginShell(): string {
-  try {
-    return process.env.SHELL || os.userInfo().shell || '/bin/sh';
-  } catch {
-    return process.env.SHELL || '/bin/sh';
   }
 }
 
