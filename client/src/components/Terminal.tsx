@@ -2,7 +2,28 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { CanvasAddon } from '@xterm/addon-canvas';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { getToken } from '../api';
+
+// GPU-accelerated rendering keeps large bursts of agent output smooth. Try
+// WebGL first, fall back to the canvas renderer, and silently keep the
+// built-in DOM renderer if neither is available (old GPUs, some browsers).
+function loadFastRenderer(term: Terminal): void {
+  try {
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => webgl.dispose());
+    term.loadAddon(webgl);
+    return;
+  } catch {
+    // Fall through to the canvas renderer.
+  }
+  try {
+    term.loadAddon(new CanvasAddon());
+  } catch {
+    // Keep the default DOM renderer.
+  }
+}
 
 interface Props {
   sessionId: string;
@@ -34,6 +55,7 @@ export default function TerminalView({ sessionId, onMissing }: Props) {
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
     term.open(containerRef.current!);
+    loadFastRenderer(term);
     fit.fit();
 
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';

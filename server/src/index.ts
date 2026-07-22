@@ -1,4 +1,5 @@
 import http from 'node:http';
+import type { Socket } from 'node:net';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -204,6 +205,10 @@ const termWss = new WebSocketServer({ noServer: true });
 const eventWss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
+  // Nagle's algorithm batches small writes together, which is exactly wrong
+  // for a terminal: it delays every single keystroke echo. Disabling it lets
+  // node-pty's output reach the browser as soon as it's written.
+  (socket as Socket).setNoDelay(true);
   const url = new URL(req.url || '', 'http://localhost');
   const token = url.searchParams.get('token');
   if (!verifyToken(token)) {
