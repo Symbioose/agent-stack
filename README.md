@@ -73,6 +73,24 @@ Requires MagicDNS + HTTPS certificates enabled in the Tailscale admin console.
 Keep port 3000 closed in your cloud firewall; `tailscale serve` reaches the app
 through localhost.
 
+### If page loads crawl over Tailscale
+
+Some hosts (notably Oracle Cloud instances) police sustained UDP flows down to
+a few kB/s while TCP runs at full speed. Tailscale's direct connections are
+UDP, so everything *works* but bulk transfers crawl; its DERP relays run over
+TCP 443 and are unaffected. Diagnose by comparing a large download with
+`tailscale ping` output, and if the direct path is the bottleneck, force
+relayed connections by dropping inbound UDP to tailscaled's port (rule in the
+`raw` table so tailscaled restarts cannot reorder around it):
+
+```bash
+iptables -t raw -I PREROUTING -p udp --dport 41641 -j DROP
+```
+
+Wrap it in a small systemd oneshot unit (`ExecStart` adds the rule, `ExecStop`
+deletes it) so it persists across reboots and can be toggled with
+`systemctl disable --now <unit>`.
+
 ## As a systemd service (recommended)
 
 Secrets live in a root-only environment file, not in the world-readable unit:
