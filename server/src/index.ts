@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import compression from 'compression';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import pty from 'node-pty';
@@ -54,6 +55,9 @@ const ALLOWED_ORIGINS = (process.env.AGENT_DECK_ALLOWED_ORIGINS || '')
 
 const app = express();
 app.disable('x-powered-by');
+// The main JS bundle is ~1 MB; gzip cuts it to ~275 kB, which matters a lot
+// on slow links (mobile networks, throttled VPN paths).
+app.use(compression());
 app.use(express.json());
 
 const requireAuth: express.RequestHandler = (req, res, next) => {
@@ -253,6 +257,9 @@ app.delete('/api/sessions/:id', requireAuth, async (req, res) => {
 app.all('/api/*', (_req, res) => res.status(404).json({ error: 'not found' }));
 
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
+// Vite content-hashes everything under /assets, so browsers may cache those
+// forever: after the first visit, reloads no longer re-download the bundle.
+app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }));
 app.use(express.static(clientDist));
 app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 
