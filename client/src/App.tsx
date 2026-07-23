@@ -149,7 +149,7 @@ export default function App() {
           <button
             onClick={() => setSidebarOpen(true)}
             title="Open sidebar"
-            className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
+            className="absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10 flex h-10 w-10 items-center justify-center rounded-lg text-dim transition-colors hover:bg-hover hover:text-text"
           >
             <PanelLeftOpen size={17} />
           </button>

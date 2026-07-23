@@ -61,10 +61,17 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
     setRenamingId(null);
   };
 
-  // Buttery smooth scrolling for the history list (Lenis).
+  // Buttery smooth scrolling for the history list (Lenis) — desktop only.
+  // On touch screens Lenis intercepts the swipe without driving its own
+  // scroll, so the list becomes impossible to scroll; native momentum
+  // scrolling handles touch far better there.
   useEffect(() => {
     const wrapper = listRef.current;
-    if (!wrapper || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (
+      !wrapper
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      || window.matchMedia('(pointer: coarse)').matches
+    ) return;
     const lenis = new Lenis({ wrapper, lerp: 0.16 });
     let frame = 0;
     const raf = (time: number) => {
@@ -79,7 +86,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-sidebar px-2.5 pb-2.5 pt-3">
+    <div className="flex h-full flex-col bg-sidebar px-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] pl-[max(0.625rem,env(safe-area-inset-left))] pt-[max(0.75rem,env(safe-area-inset-top))]">
       <div className="flex h-10 items-center justify-between px-1.5">
         <span className="flex items-center gap-2.5 text-[14px] font-semibold tracking-[-0.015em]">
           <BrandMark size={24} /> Agent Deck

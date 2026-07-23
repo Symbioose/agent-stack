@@ -60,7 +60,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="relative z-20 flex min-h-[52px] items-center gap-2.5 border-b border-border-soft bg-bg px-4 max-md:px-2.5">
+      <header className="relative z-20 flex min-h-[52px] items-center gap-2.5 border-b border-border-soft bg-bg px-4 max-md:px-2.5 max-md:pt-[env(safe-area-inset-top)]">
         {!sidebarOpen && (
           <button
             onClick={onOpenSidebar}
@@ -128,7 +128,7 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
         </div>
       </div>
       <form
-        className="px-1.5 pb-1.5 md:hidden"
+        className="px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden"
         onSubmit={(event) => {
           event.preventDefault();
           sendQuick();

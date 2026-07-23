@@ -336,6 +336,20 @@ setInterval(() => {
   }
 }, 30_000);
 
+// node-pty defaults a spawn's cwd to the server's process.cwd(). If that
+// directory was moved or deleted after startup (Node caches the old path),
+// tmux attach fails with "chdir(2) failed" — or node-pty throws uv_cwd. Always
+// hand it a directory we know exists.
+function safeCwd(): string {
+  try {
+    const home = os.homedir();
+    if (fs.existsSync(home)) return home;
+  } catch {
+    // fall through
+  }
+  return '/';
+}
+
 async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
   if (!(await hasSession(sessionId))) {
     ws.close(4004, 'session not found');
@@ -355,6 +369,7 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
+      cwd: safeCwd(),
       env: { ...process.env, TERM: 'xterm-256color' },
     });
   } catch (err) {
