@@ -5,7 +5,7 @@ export const OUTPUT_FRESH_MS = 3000;
 export const WORKING_QUIET_MS = 7500;
 export const IDLE_AFTER_MS = 30 * 60 * 1000;
 
-const SHELLS = new Set(['bash', 'zsh', 'fish', 'sh', 'dash', 'tmux']);
+export const SHELLS = new Set(['bash', 'zsh', 'fish', 'sh', 'dash', 'tmux']);
 
 type SessionState = TmuxSession['state'];
 

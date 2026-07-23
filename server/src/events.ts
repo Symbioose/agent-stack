@@ -43,14 +43,23 @@ function ensureTimer(): void {
   timer = setInterval(() => void tick(), 1500);
 }
 
+function dropClient(ws: WebSocket): void {
+  clients.delete(ws);
+  if (clients.size === 0 && timer) {
+    clearInterval(timer);
+    timer = null;
+    lastPayload = '';
+  }
+}
+
 export async function addEventClient(ws: WebSocket): Promise<void> {
   clients.add(ws);
   ensureTimer();
   // Send an immediate snapshot so the UI paints instantly.
   const list = await buildSessionList();
   ws.send(JSON.stringify({ type: 'sessions', sessions: list }));
-  ws.on('close', () => clients.delete(ws));
-  ws.on('error', () => clients.delete(ws));
+  ws.on('close', () => dropClient(ws));
+  ws.on('error', () => dropClient(ws));
 }
 
 // Force an immediate broadcast (e.g. right after create/delete) for snappy UX.

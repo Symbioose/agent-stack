@@ -11,15 +11,18 @@ import pty from 'node-pty';
 import {
   PREFIX,
   createSession,
+  exactSession,
   killSession,
   hasSession,
   sendInput,
+  sendInputWhenReady,
   captureScrollback,
   tmuxArgs,
 } from './tmux.js';
 import { sessionStateTracker } from './session-state.js';
 import { getMeta, setMeta, deleteMeta } from './store.js';
 import { authEnabled, checkPassword, issueToken, verifyToken } from './auth.js';
+import { LoginRateLimiter, isLoopbackHost, tokenFromProtocols, upgradeOriginAllowed } from './security.js';
 import { CliUnavailableError, ensureCliAvailable, getClis } from './clis.js';
 import { addEventClient, buildSessionList, pokeEvents } from './events.js';
 import type { ApiErrorBody } from './types.js';
@@ -31,9 +34,26 @@ process.on('unhandledRejection', (err) => console.error('unhandledRejection:', e
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || '0.0.0.0';
+// Without a password this server is a passwordless remote shell, so it
+// defaults to loopback and refuses to bind anything wider unless the operator
+// explicitly opts in with AGENT_DECK_INSECURE=1.
+const HOST = process.env.HOST || (authEnabled() ? '0.0.0.0' : '127.0.0.1');
+if (!authEnabled() && !isLoopbackHost(HOST) && process.env.AGENT_DECK_INSECURE !== '1') {
+  console.error(
+    `Refusing to listen on ${HOST} without AGENT_DECK_PASSWORD: anyone who can reach this port gets a shell.\n` +
+    'Set AGENT_DECK_PASSWORD, or set AGENT_DECK_INSECURE=1 to override.',
+  );
+  process.exit(1);
+}
+// Extra origins (hostnames) allowed to open WebSockets, for reverse proxies
+// that neither preserve Host nor set X-Forwarded-Host.
+const ALLOWED_ORIGINS = (process.env.AGENT_DECK_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json());
 
 const requireAuth: express.RequestHandler = (req, res, next) => {
@@ -49,11 +69,20 @@ app.get('/api/config', (_req, res) => {
   res.json({ authRequired: authEnabled() });
 });
 
+const loginLimiter = new LoginRateLimiter();
+
 app.post('/api/login', (req, res) => {
+  const key = req.ip || 'unknown';
+  if (loginLimiter.blocked(key)) {
+    res.status(429).json({ error: 'Too many attempts. Try again later.' });
+    return;
+  }
   if (!checkPassword(req.body?.password)) {
+    loginLimiter.recordFailure(key);
     res.status(401).json({ error: 'invalid password' });
     return;
   }
+  loginLimiter.reset(key);
   res.json({ token: issueToken() });
 });
 
@@ -61,24 +90,39 @@ app.get('/api/clis', requireAuth, (_req, res) => {
   res.json(getClis());
 });
 
+// Optional confinement: when set, browsing and session working directories
+// may not escape this root.
+const ROOT = process.env.AGENT_DECK_ROOT ? path.resolve(process.env.AGENT_DECK_ROOT) : null;
+
 // Expand ~ and resolve a working-directory path supplied by the client.
-function resolveDir(input: unknown): string {
+// Returns null when the path escapes AGENT_DECK_ROOT.
+function resolveDir(input: unknown): string | null {
   const home = os.homedir();
-  let value = String(input ?? '').trim();
-  if (!value || value === '~') return home;
-  if (value.startsWith('~/')) value = path.join(home, value.slice(2));
-  return path.resolve(value);
+  const raw = String(input ?? '').trim();
+  let value = raw;
+  if (!value || value === '~') value = home;
+  else if (value.startsWith('~/')) value = path.join(home, value.slice(2));
+  const resolved = path.resolve(value);
+  if (!ROOT) return resolved;
+  if (resolved === ROOT || resolved.startsWith(ROOT + path.sep)) return resolved;
+  // The default landing spot must stay usable when home is outside the root.
+  return !raw || raw === '~' ? ROOT : null;
 }
 
 app.get('/api/browse', requireAuth, async (req, res) => {
   const dir = resolveDir(req.query.path);
+  if (!dir) {
+    res.status(403).json({ error: 'Path is outside the allowed root.' });
+    return;
+  }
   try {
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
     const dirs = entries
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b));
-    res.json({ path: dir, parent: path.dirname(dir), home: os.homedir(), dirs });
+    const parent = ROOT && dir === ROOT ? dir : path.dirname(dir);
+    res.json({ path: dir, parent, home: ROOT ?? os.homedir(), dirs });
   } catch {
     res.status(404).json({ error: `Folder not found: ${dir}` });
   }
@@ -86,6 +130,10 @@ app.get('/api/browse', requireAuth, async (req, res) => {
 
 app.post('/api/mkdir', requireAuth, async (req, res) => {
   const parent = resolveDir(req.body?.path);
+  if (!parent) {
+    res.status(403).json({ error: 'Path is outside the allowed root.' });
+    return;
+  }
   const name = String(req.body?.name ?? '').trim();
   if (!name || name.includes('/') || name.includes('\\') || name === '.' || name === '..') {
     res.status(400).json({ error: 'Invalid folder name.' });
@@ -115,9 +163,9 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
     return;
   }
   const dir = resolveDir(cwd);
-  const stat = await fs.promises.stat(dir).catch(() => null);
-  if (!stat?.isDirectory()) {
-    res.status(400).json({ code: 'invalid_cwd', error: `Folder not found: ${dir}` } satisfies ApiErrorBody);
+  const stat = dir ? await fs.promises.stat(dir).catch(() => null) : null;
+  if (!dir || !stat?.isDirectory()) {
+    res.status(400).json({ code: 'invalid_cwd', error: `Folder not found: ${dir ?? String(cwd)}` } satisfies ApiErrorBody);
     return;
   }
   const id = `${PREFIX}${crypto.randomBytes(4).toString('hex')}`;
@@ -146,9 +194,14 @@ app.post('/api/sessions', requireAuth, async (req, res) => {
     created: Date.now(),
   });
   if (input) {
-    // Give the shell + agent CLI a moment to boot before sending the first prompt.
-    const delay = def.command ? 2000 : 250;
-    setTimeout(() => void sendInput(id, String(input)).catch(() => {}), delay);
+    if (def.command) {
+      // Wait until the CLI actually took over the pane; a fixed delay would
+      // let a slow-starting CLI hand the prompt text to the shell instead.
+      void sendInputWhenReady(id, String(input)).catch(() => {});
+    } else {
+      // Plain shell: the input is a shell command, give the shell a beat to boot.
+      setTimeout(() => void sendInput(id, String(input)).catch(() => {}), 250);
+    }
   }
   void pokeEvents();
   res.json({ id });
@@ -196,13 +249,19 @@ app.delete('/api/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Unknown API paths must not fall through to the SPA's index.html.
+app.all('/api/*', (_req, res) => res.status(404).json({ error: 'not found' }));
+
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
 app.use(express.static(clientDist));
 app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
 
 const server = http.createServer(app);
-const termWss = new WebSocketServer({ noServer: true });
-const eventWss = new WebSocketServer({ noServer: true });
+// The client offers ["agent-deck", "deck.<token>"]; echo the first one back
+// (browsers abort the handshake when no offered subprotocol is selected).
+const selectProtocol = (protocols: Set<string>) => (protocols.has('agent-deck') ? 'agent-deck' : false);
+const termWss = new WebSocketServer({ noServer: true, handleProtocols: selectProtocol });
+const eventWss = new WebSocketServer({ noServer: true, handleProtocols: selectProtocol });
 
 server.on('upgrade', (req, socket, head) => {
   // Nagle's algorithm batches small writes together, which is exactly wrong
@@ -210,24 +269,65 @@ server.on('upgrade', (req, socket, head) => {
   // node-pty's output reach the browser as soon as it's written.
   (socket as Socket).setNoDelay(true);
   const url = new URL(req.url || '', 'http://localhost');
-  const token = url.searchParams.get('token');
+  const originOk = upgradeOriginAllowed({
+    origin: req.headers.origin,
+    host: req.headers.host,
+    forwardedHost: String(req.headers['x-forwarded-host'] ?? '') || undefined,
+    authEnabled: authEnabled(),
+    allowlist: ALLOWED_ORIGINS,
+  });
+  if (!originOk) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  // Token travels in the subprotocol list to stay out of proxy access logs;
+  // the query parameter remains supported for scripts.
+  const token = tokenFromProtocols(req.headers['sec-websocket-protocol']) ?? url.searchParams.get('token');
   if (!verifyToken(token)) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
   }
   if (url.pathname === '/ws/events') {
-    eventWss.handleUpgrade(req, socket, head, (ws) => void addEventClient(ws));
+    eventWss.handleUpgrade(req, socket, head, (ws) => {
+      trackLiveness(ws);
+      void addEventClient(ws);
+    });
     return;
   }
   const match = url.pathname.match(/^\/ws\/(deck_[a-z0-9]+)$/);
   if (match) {
-    termWss.handleUpgrade(req, socket, head, (ws) => void attachTerminal(ws, match[1]));
+    termWss.handleUpgrade(req, socket, head, (ws) => {
+      trackLiveness(ws);
+      void attachTerminal(ws, match[1]);
+    });
     return;
   }
   socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
   socket.destroy();
 });
+
+// Protocol-level pings keep idle sockets alive through reverse proxies
+// (tailscale serve, Caddy) and reap connections whose peer silently vanished
+// (mobile browsers killed by the OS).
+const alive = new WeakSet<WebSocket>();
+function trackLiveness(ws: WebSocket): void {
+  alive.add(ws);
+  ws.on('pong', () => alive.add(ws));
+}
+setInterval(() => {
+  for (const wss of [termWss, eventWss]) {
+    for (const ws of wss.clients) {
+      if (!alive.has(ws)) {
+        ws.terminate();
+        continue;
+      }
+      alive.delete(ws);
+      ws.ping();
+    }
+  }
+}, 30_000);
 
 async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
   if (!(await hasSession(sessionId))) {
@@ -244,7 +344,7 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
 
   let term: pty.IPty;
   try {
-    term = pty.spawn('tmux', tmuxArgs('attach-session', '-t', sessionId), {
+    term = pty.spawn('tmux', tmuxArgs('attach-session', '-t', exactSession(sessionId)), {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
@@ -278,6 +378,14 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
   });
   ws.on('close', () => term.kill());
 }
+
+// A server that cannot bind (EADDRINUSE…) is useless: exit so the supervisor
+// can restart or report it, instead of the uncaughtException guard keeping a
+// dead process alive.
+server.on('error', (err) => {
+  console.error('server error:', err);
+  process.exit(1);
+});
 
 server.listen(PORT, HOST, () => {
   console.log(`agent-deck listening on http://${HOST}:${PORT}`);

@@ -115,6 +115,13 @@ input:focus-visible {
   .terminal-host .xterm {
     padding: 5px 6px;
   }
+
+  /* iOS Safari auto-zooms the page when a focused field renders text below
+     16px; with pinch-zoom no longer disabled, keep fields at 16px instead. */
+  input,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

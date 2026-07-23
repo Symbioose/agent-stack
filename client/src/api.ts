@@ -10,6 +10,13 @@ export function clearToken(): void {
   localStorage.removeItem('deck_token');
 }
 
+// The auth token rides in the WebSocket subprotocol list instead of the URL,
+// keeping it out of reverse-proxy access logs. The server echoes "agent-deck".
+export function wsProtocols(): string[] {
+  const token = getToken();
+  return token ? ['agent-deck', `deck.${token}`] : ['agent-deck'];
+}
+
 export class ApiError extends Error {
   unauthorized = false;
   code?: string;

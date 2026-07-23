@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
-import { sessionStateTracker } from './session-state.js';
+import { SHELLS, sessionStateTracker } from './session-state.js';
 import { loginShell } from './shell.js';
 import type { TmuxSession } from './types.js';
 
@@ -9,6 +10,19 @@ export { loginShell } from './shell.js';
 const exec = promisify(execFile);
 
 export const PREFIX = 'deck_';
+
+// tmux matches "-t name" by prefix; "=name" forces an exact match so a
+// truncated id can never target another session. Session-target commands
+// (has-session, kill-session, attach-session) take "=name", but pane-target
+// commands (send-keys, capture-pane, set-option…) only resolve the exact
+// form when the session is spelled out as "=name:".
+export function exactSession(name: string): string {
+  return `=${name}`;
+}
+
+function exactPane(name: string): string {
+  return `=${name}:`;
+}
 
 export function tmuxArgs(...args: string[]): string[] {
   return [
@@ -68,25 +82,50 @@ export async function createSession(name: string, command: string, cwd?: string)
     '-c', cwd || process.env.HOME || '.',
     `${loginShell()} -l`,
   );
-  await runTmux('set-option', '-t', name, 'status', 'off');
-  await runTmux('set-option', '-t', name, 'history-limit', '20000');
+  await runTmux('set-option', '-t', exactPane(name), 'status', 'off');
+  await runTmux('set-option', '-t', exactPane(name), 'history-limit', '20000');
   if (command) await sendInput(name, command);
 }
 
 export async function killSession(name: string): Promise<void> {
-  await runTmux('kill-session', '-t', name);
+  await runTmux('kill-session', '-t', exactSession(name));
 }
 
 export async function sendInput(name: string, text: string): Promise<void> {
   sessionStateTracker.recordInput(name);
   // Send the literal text, then a separate Enter so multi-line stays intact.
-  await runTmux('send-keys', '-t', name, '-l', text);
-  await runTmux('send-keys', '-t', name, 'Enter');
+  await runTmux('send-keys', '-t', exactPane(name), '-l', text);
+  await runTmux('send-keys', '-t', exactPane(name), 'Enter');
+}
+
+// Type the first prompt only once the pane stopped running a shell, i.e. the
+// agent CLI actually booted. On a fixed timer, a slow-starting CLI would let
+// the prompt text reach the shell instead — and get executed as a command.
+export async function sendInputWhenReady(name: string, text: string, timeoutMs = 15000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let command: string;
+    try {
+      const { stdout } = await runTmux(
+        'display-message', '-p', '-t', exactPane(name), '#{pane_current_command}',
+      );
+      command = stdout.trim();
+    } catch {
+      return; // session is gone
+    }
+    if (command && !SHELLS.has(command)) {
+      await delay(300); // let the CLI finish drawing its input widget
+      await sendInput(name, text);
+      return;
+    }
+    await delay(250);
+  }
+  // The CLI never started: drop the prompt rather than typing it into the shell.
 }
 
 export async function hasSession(name: string): Promise<boolean> {
   try {
-    await runTmux('has-session', '-t', name);
+    await runTmux('has-session', '-t', exactSession(name));
     return true;
   } catch {
     return false;
@@ -99,7 +138,7 @@ export async function captureScrollback(name: string, lines = 2000): Promise<str
     const { stdout } = await runTmux(
       'capture-pane',
       '-t',
-      name,
+      exactPane(name),
       '-p',
       '-e',
       '-J',

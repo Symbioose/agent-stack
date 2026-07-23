@@ -37,6 +37,14 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete,
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [, setClock] = useState(0);
+
+  // Re-render periodically so the "x min ago" labels do not go stale while
+  // the session list itself is unchanged.
+  useEffect(() => {
+    const timer = setInterval(() => setClock((tick) => tick + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (renamingId) renameInputRef.current?.select();

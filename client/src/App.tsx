@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import Login from './components/Login';
 import NewSessionView from './components/NewSessionView';
 import SessionView from './components/SessionView';
+import ConfirmDialog from './components/ConfirmDialog';
 import { api, clearToken, getToken } from './api';
 import { useSessions } from './useSessions';
 import type { CliDef } from './types';
@@ -20,8 +21,29 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile());
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const sessions = useSessions(authed === true, () => setAuthed(false));
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Cmd/Ctrl+K jumps to the new-session composer, like a chat app.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setActive(null);
+        setCreateError(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -71,9 +93,17 @@ export default function App() {
   };
 
   const deleteSession = async (id: string) => {
-    if (!confirm('Delete this session? Its process will be stopped.')) return;
-    await api.deleteSession(id);
-    if (active === id) setActive(null);
+    setConfirmDeleteId(null);
+    try {
+      await api.deleteSession(id);
+      if (active === id) setActive(null);
+    } catch {
+      setToast('Could not delete the session.');
+    }
+  };
+
+  const renameSession = (id: string, title: string) => {
+    void api.renameSession(id, title).catch(() => setToast('Could not rename the session.'));
   };
 
   const openSession = (id: string) => {
@@ -100,8 +130,8 @@ export default function App() {
             setCreateError(null);
             if (isMobile()) setSidebarOpen(false);
           }}
-          onDelete={(id) => void deleteSession(id)}
-          onRename={(id, title) => void api.renameSession(id, title)}
+          onDelete={(id) => setConfirmDeleteId(id)}
+          onRename={renameSession}
           onClose={() => setSidebarOpen(false)}
           onLogout={() => {
             clearToken();
@@ -129,8 +159,8 @@ export default function App() {
             session={activeSession}
             sidebarOpen={sidebarOpen}
             onOpenSidebar={() => setSidebarOpen(true)}
-            onRename={(title) => api.renameSession(activeSession.id, title)}
-            onDelete={() => void deleteSession(activeSession.id)}
+            onRename={(title) => renameSession(activeSession.id, title)}
+            onDelete={() => setConfirmDeleteId(activeSession.id)}
             onMissing={() => setActive(null)}
           />
         ) : active ? (
@@ -148,6 +178,21 @@ export default function App() {
           />
         )}
       </main>
+
+      {confirmDeleteId && (
+        <ConfirmDialog
+          title="Delete this session?"
+          body="The process running inside it will be stopped."
+          confirmLabel="Delete"
+          onConfirm={() => void deleteSession(confirmDeleteId)}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
+      {toast && (
+        <div role="alert" className="fixed bottom-4 left-1/2 z-[110] -translate-x-1/2 animate-fade-in rounded-xl border border-danger/25 bg-elevated px-4 py-2.5 text-[13px] text-danger shadow-[0_14px_40px_rgba(0,0,0,.5)]">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

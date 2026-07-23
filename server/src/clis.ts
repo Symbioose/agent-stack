@@ -43,11 +43,24 @@ export async function ensureCliAvailable(cli: CliDef): Promise<void> {
   }
 }
 
+function isCliDef(value: unknown): value is CliDef {
+  if (!value || typeof value !== 'object') return false;
+  const cli = value as Partial<CliDef>;
+  return typeof cli.id === 'string' && cli.id.length > 0
+    && typeof cli.label === 'string' && cli.label.length > 0
+    && typeof cli.command === 'string';
+}
+
 export function getClis(): CliDef[] {
   const file = path.join(os.homedir(), '.agent-deck', 'clis.json');
   try {
     const custom = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (Array.isArray(custom) && custom.length) return custom as CliDef[];
+    if (Array.isArray(custom)) {
+      // Keep only well-formed entries so a hand-edited file cannot produce
+      // sessions with undefined commands.
+      const valid = custom.filter(isCliDef).map(({ id, label, command }) => ({ id, label, command }));
+      if (valid.length) return valid;
+    }
   } catch {
     // fall through to defaults
   }

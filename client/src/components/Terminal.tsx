@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { getToken } from '../api';
+import { wsProtocols } from '../api';
 
 // GPU-accelerated rendering keeps large bursts of agent output smooth. Try
 // WebGL first, fall back to the canvas renderer, and silently keep the
@@ -58,42 +58,78 @@ export default function TerminalView({ sessionId, onMissing }: Props) {
     loadFastRenderer(term);
     fit.fit();
 
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(
-      `${proto}://${location.host}/ws/${sessionId}?token=${encodeURIComponent(getToken())}`,
-    );
+    // Mobile browsers kill sockets whenever the phone locks or the app goes
+    // to the background, so the connection must heal itself: exponential
+    // backoff in the background, immediate retry when the tab is visible again.
+    let ws: WebSocket | null = null;
+    let disposed = false;
+    let everConnected = false;
+    let announcedLoss = false;
+    let retryDelay = 1000;
+    let retryTimer: number | undefined;
 
     const sendResize = () => {
       fit.fit();
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws?.readyState === WebSocket.OPEN) {
         ws.send(`\x00resize:${term.cols}x${term.rows}`);
       }
     };
 
-    ws.onopen = () => {
-      sendResize();
-      term.focus();
+    const connect = () => {
+      if (disposed) return;
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws/${sessionId}`, wsProtocols());
+      ws.onopen = () => {
+        // The server replays the scrollback on every attach; start clean so
+        // history is not duplicated after a reconnect.
+        if (everConnected) term.reset();
+        everConnected = true;
+        announcedLoss = false;
+        retryDelay = 1000;
+        sendResize();
+        term.focus();
+      };
+      ws.onmessage = (e) => term.write(e.data as string);
+      ws.onclose = (event) => {
+        if (disposed) return;
+        if (event.code === 4004) {
+          onMissingRef.current?.();
+          return;
+        }
+        if (event.code === 1000) return; // the pty ended cleanly
+        if (everConnected && !announcedLoss) {
+          announcedLoss = true;
+          term.write('\r\n\x1b[90m[connection lost — reconnecting…]\x1b[0m\r\n');
+        }
+        retryTimer = window.setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
+      };
     };
-    ws.onmessage = (e) => term.write(e.data as string);
-    ws.onclose = (event) => {
-      if (event.code === 4004) {
-        onMissingRef.current?.();
-        return;
-      }
-      if (event.code !== 1000) term.write('\r\n\x1b[90m[terminal connection lost]\x1b[0m\r\n');
+    connect();
+
+    const onVisible = () => {
+      if (document.hidden || disposed) return;
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      window.clearTimeout(retryTimer);
+      retryDelay = 1000;
+      connect();
     };
+    document.addEventListener('visibilitychange', onVisible);
 
     const dispose = term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(data);
+      if (ws?.readyState === WebSocket.OPEN) ws.send(data);
     });
 
     const observer = new ResizeObserver(() => sendResize());
     observer.observe(containerRef.current!);
 
     return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+      document.removeEventListener('visibilitychange', onVisible);
       observer.disconnect();
       dispose.dispose();
-      ws.close();
+      ws?.close();
       term.dispose();
     };
   }, [sessionId]);

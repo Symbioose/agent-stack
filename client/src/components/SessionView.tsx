@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, PanelLeftOpen, Pencil, Trash2 } from 'lucide-react';
+import { ArrowUp, MoreHorizontal, PanelLeftOpen, Pencil, Trash2 } from 'lucide-react';
 import CliIcon from './CliIcon';
 import TerminalView from './Terminal';
+import { api } from '../api';
 import type { Session } from '../types';
 
 interface Props {
@@ -17,8 +18,18 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(session.title);
+  const [quickText, setQuickText] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Typing straight into xterm.js on a phone is painful (virtual keyboard,
+  // autocorrect). This bar sends whole messages through the input API instead.
+  const sendQuick = () => {
+    const text = quickText.trim();
+    if (!text) return;
+    setQuickText('');
+    void api.sendInput(session.id, text).catch(() => setQuickText(text));
+  };
 
   useEffect(() => setTitle(session.title), [session.title]);
   useEffect(() => {
@@ -116,6 +127,34 @@ export default function SessionView({ session, sidebarOpen, onOpenSidebar, onRen
           <TerminalView key={session.id} sessionId={session.id} onMissing={onMissing} />
         </div>
       </div>
+      <form
+        className="px-1.5 pb-1.5 md:hidden"
+        onSubmit={(event) => {
+          event.preventDefault();
+          sendQuick();
+        }}
+      >
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-elevated px-3 py-1.5">
+          <input
+            value={quickText}
+            onChange={(event) => setQuickText(event.target.value)}
+            placeholder="Message the agent…"
+            enterKeyHint="send"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            className="min-w-0 flex-1 bg-transparent py-1 text-[16px] outline-none placeholder:text-faint"
+          />
+          <button
+            type="submit"
+            disabled={!quickText.trim()}
+            aria-label="Send"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text text-bg transition-opacity active:scale-95 disabled:opacity-25"
+          >
+            <ArrowUp size={15} strokeWidth={2.5} />
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

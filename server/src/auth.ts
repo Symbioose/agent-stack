@@ -8,20 +8,26 @@ const SECRET = process.env.AGENT_DECK_SECRET
 const PASSWORD = process.env.AGENT_DECK_PASSWORD || '';
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// Mix the password into the signing key so changing the password (not only
+// the secret) invalidates every previously issued token.
+const TOKEN_KEY = crypto.createHmac('sha256', SECRET).update(`token-key:${PASSWORD}`).digest();
+
 export function authEnabled(): boolean {
   return PASSWORD.length > 0;
 }
 
 export function checkPassword(password: unknown): boolean {
   if (!authEnabled()) return true;
-  const a = Buffer.from(String(password ?? ''));
-  const b = Buffer.from(PASSWORD);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  // Compare fixed-length digests: timingSafeEqual requires equal lengths, and
+  // an early length check would leak the password's length.
+  const a = crypto.createHash('sha256').update(String(password ?? '')).digest();
+  const b = crypto.createHash('sha256').update(PASSWORD).digest();
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function issueToken(): string {
   const payload = String(Date.now() + TOKEN_TTL_MS);
-  const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+  const sig = crypto.createHmac('sha256', TOKEN_KEY).update(payload).digest('hex');
   return `${payload}.${sig}`;
 }
 
@@ -30,7 +36,7 @@ export function verifyToken(token: unknown): boolean {
   if (!token) return false;
   const [payload, sig] = String(token).split('.');
   if (!payload || !sig) return false;
-  const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+  const expected = crypto.createHmac('sha256', TOKEN_KEY).update(payload).digest('hex');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;

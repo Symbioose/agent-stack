@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getToken } from './api';
+import { wsProtocols } from './api';
 import type { Session } from './types';
 
 // Subscribes to the server's real-time events WebSocket. The server pushes the
@@ -18,7 +18,7 @@ export function useSessions(enabled: boolean, onUnauthorized: () => void) {
 
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws/events?token=${encodeURIComponent(getToken())}`);
+      ws = new WebSocket(`${proto}://${location.host}/ws/events`, wsProtocols());
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data as string);
