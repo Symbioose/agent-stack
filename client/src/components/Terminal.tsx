@@ -123,10 +123,65 @@ export default function TerminalView({ sessionId, onMissing }: Props) {
     const observer = new ResizeObserver(() => sendResize());
     observer.observe(containerRef.current!);
 
+    // Swiping through history on a phone: while tmux is attached the
+    // alternate screen is active, so xterm has no local scrollback to move —
+    // and xterm never translates touches into the mouse reports that would
+    // let tmux copy-mode scroll. Re-emit vertical swipes as wheel events;
+    // xterm's wheel path then does the right thing for every mode (mouse
+    // reports for tmux, arrow keys, or plain viewport scrolling). The normal
+    // buffer keeps xterm's native touch scrolling, so only capture swipes
+    // when the alternate buffer is active.
+    const host = containerRef.current!;
+    let touchY: number | null = null;
+    let swipeRemainder = 0;
+    const onTouchStart = (event: TouchEvent) => {
+      touchY = event.touches.length === 1 ? event.touches[0].clientY : null;
+      swipeRemainder = 0;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchY === null || event.touches.length !== 1) return;
+      if (term.buffer.active.type !== 'alternate') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const touch = event.touches[0];
+      swipeRemainder += touchY - touch.clientY;
+      touchY = touch.clientY;
+      // tmux scrolls a few lines per wheel tick, so one tick every two rows
+      // of finger travel keeps the pace close to native touch scrolling.
+      const rowHeight = host.clientHeight / term.rows || 17;
+      const tickSize = rowHeight * 2;
+      const ticks = Math.trunc(swipeRemainder / tickSize);
+      if (!ticks) return;
+      swipeRemainder -= ticks * tickSize;
+      const target = event.target instanceof Element ? event.target : host;
+      for (let i = 0; i < Math.min(Math.abs(ticks), 30); i++) {
+        target.dispatchEvent(
+          new WheelEvent('wheel', {
+            deltaY: ticks > 0 ? rowHeight : -rowHeight,
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+    };
+    const onTouchEnd = () => {
+      touchY = null;
+    };
+    host.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    host.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+    host.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    host.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
+
     return () => {
       disposed = true;
       window.clearTimeout(retryTimer);
       document.removeEventListener('visibilitychange', onVisible);
+      host.removeEventListener('touchstart', onTouchStart, { capture: true });
+      host.removeEventListener('touchmove', onTouchMove, { capture: true });
+      host.removeEventListener('touchend', onTouchEnd, { capture: true });
+      host.removeEventListener('touchcancel', onTouchEnd, { capture: true });
       observer.disconnect();
       dispose.dispose();
       ws?.close();

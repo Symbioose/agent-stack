@@ -123,6 +123,14 @@ export async function sendInputWhenReady(name: string, text: string, timeoutMs =
   // The CLI never started: drop the prompt rather than typing it into the shell.
 }
 
+// Scrolling history from the web client goes through tmux copy-mode, which
+// only engages when tmux owns the mouse: with it off, wheel events reach the
+// pane as arrow keys and touch gestures do nothing at all. Global so that
+// sessions created before this option existed pick it up on their next attach.
+export async function enableMouse(): Promise<void> {
+  await runTmux('set-option', '-g', 'mouse', 'on');
+}
+
 export async function hasSession(name: string): Promise<boolean> {
   try {
     await runTmux('has-session', '-t', exactSession(name));

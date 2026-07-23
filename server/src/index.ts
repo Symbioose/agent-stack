@@ -12,6 +12,7 @@ import pty from 'node-pty';
 import {
   PREFIX,
   createSession,
+  enableMouse,
   exactSession,
   killSession,
   hasSession,
@@ -355,6 +356,9 @@ async function attachTerminal(ws: WebSocket, sessionId: string): Promise<void> {
     ws.close(4004, 'session not found');
     return;
   }
+
+  // Wheel and swipe scrolling need tmux mouse mode (see enableMouse).
+  await enableMouse().catch(() => {});
 
   // Restore scrollback history first so the user sees context immediately.
   const history = await captureScrollback(sessionId);
